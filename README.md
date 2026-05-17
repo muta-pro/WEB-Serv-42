@@ -18,7 +18,7 @@ building a small web server: communication machine
 **Runntime loop**
 - wait for activity
 - accept a client
-- receive a data - ***HTTP request**
+- receive a data - ***HTTP request***
 - understand the request
 - decide what it means
 - prepare the answer
