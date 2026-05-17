@@ -7,7 +7,7 @@ building a small web server: communication machine
 - preparing the final response
 
 **Startup : first the server's rulebook, then listen**
-*The config file.
+*The config file.*
 - which port to listen on
 - where files are stored
 - what routes exist
