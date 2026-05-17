@@ -7,7 +7,7 @@ building a small web server: communication machine
 - preparing the final response
 
 **Startup : first the server's rulebook, then listen**
-- *The config file.*
+**The config file.**
 - which port to listen on
 - where files are stored
 - what routes exist
@@ -43,17 +43,22 @@ attach response body, serving static files(HTML, CSS, image, txt), generate *err
 ## goal : we want to separate the project into three clear responsibilities, following the actual life cycle of a request
 
 ## **work plan**
-**MAY-JULY**
+
+**MAY-JULY**:
 1. make server boot and accept connections
 2. request understanding
 3. return correct answers
-   **JULY-AUGUST**
+
+**JULY-AUGUST**:
+
 4. integration: conncet three parts
 	- plug request parsing into engine
 	- plug route decision into repsonse builder
 	- plug final response into writing stage
 	- test end-to-end flow
- - **SEPTEMBER**
+
+**SEPTEMBER**:
+
 5. finalize
 	- keep-alive feature
 	- CGI
