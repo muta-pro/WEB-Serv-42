@@ -1,12 +1,12 @@
 # WEB-Serv-42
 building a small web server: communication machine
 
-**Our architecture of responsabilites: 
+**Our architecture of responsabilites:**
 - receiving requests
 - understanding and deciding them
 - preparing the final response
 
-**Startup : first the server's rulebook, then listen
+**Startup : first the server's rulebook, then listen**
 *The config file.
 - which port to listen on
 - where files are stored
@@ -15,7 +15,7 @@ building a small web server: communication machine
 - where error pages are
 - when CGI should be used
 
-**Runntime loop
+**Runntime loop**
 - wait for activity
 - accept a client
 - receive a data - ***HTTP request**
