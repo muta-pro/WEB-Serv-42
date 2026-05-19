@@ -1,13 +1,13 @@
 # WEB-Serv-42
 building a small web server: communication machine
 
-**Our architecture of responsabilites: 
+**Our architecture of responsabilites:**
 - receiving requests
 - understanding and deciding them
 - preparing the final response
 
-**Startup : first the server's rulebook, then listen
-*The config file.
+**Startup : first the server's rulebook, then listen**
+**The config file.**
 - which port to listen on
 - where files are stored
 - what routes exist
@@ -15,10 +15,10 @@ building a small web server: communication machine
 - where error pages are
 - when CGI should be used
 
-**Runntime loop
+**Runntime loop**
 - wait for activity
 - accept a client
-- receive a data - ***HTTP request**
+- receive a data - ***HTTP request***
 - understand the request
 - decide what it means
 - prepare the answer
@@ -42,18 +42,23 @@ attach response body, serving static files(HTML, CSS, image, txt), generate *err
 
 ## goal : we want to separate the project into three clear responsibilities, following the actual life cycle of a request
 
-**work plan**
-*MAY-JULY*
+## **work plan**
+
+**MAY-JULY**:
 1. make server boot and accept connections
 2. request understanding
 3. return correct answers
-*JULY-AUGUST*
+
+**JULY-AUGUST**:
+
 4. integration: conncet three parts
 	- plug request parsing into engine
 	- plug route decision into repsonse builder
 	- plug final response into writing stage
 	- test end-to-end flow
-*SEPTEMBER*
+
+**SEPTEMBER**:
+
 5. finalize
 	- keep-alive feature
 	- CGI
