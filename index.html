@@ -179,6 +179,8 @@ main{max-width:1800px;margin:0 auto;padding:20px;position:relative;z-index:1;}
       <button class="filter-btn" data-filter="todo">TODO</button>
       <button class="filter-btn" data-filter="doing">DOING</button>
       <button class="filter-btn" data-filter="done">DONE</button>
+      <button class="filter-btn" style="color: var(--cyan); border-color: var(--cyan);" onclick="exportData()">📤 EXPORT</button>
+      <button class="filter-btn" style="color: var(--yellow); border-color: var(--yellow);" onclick="importData()">📥 IMPORT</button>
     </div>
     <div class="progress-pill" id="globalProgress">0 / 0</div>
   </div>
@@ -1695,6 +1697,38 @@ function showToast(msg){
   const el=document.getElementById('toast');
   el.textContent=msg; el.classList.add('show');
   clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),1600);
+}
+
+// ══════════════════════════════════════════════════════
+// EXPORT / IMPORT LOGIC
+// ══════════════════════════════════════════════════════
+function exportData() {
+  const saveData = JSON.stringify(S);
+  
+// Try to copy directly to the clipboard
+  navigator.clipboard.writeText(saveData).then(() => {
+    showToast('📋 Save code copied to clipboard!');
+  }).catch(err => {
+    // Fallback if browser blocks clipboard access
+    prompt("Copy your save code below:", saveData);
+  });
+}
+
+function importData() {
+  const pastedData = prompt("📥 Paste your save code here:");
+  
+  if (!pastedData) return; // User canceled
+  
+  try {
+    const parsed = JSON.parse(pastedData);
+    if (parsed && typeof parsed === 'object') {
+      S = { ...S, ...parsed }; // Merge the imported data
+      saveState();             // Save it to local storage
+      location.reload();       // Refresh the page to show new checkmarks
+    }
+  } catch (e) {
+    alert("❌ Invalid save code! Make sure you copied the whole text.");
+  }
 }
 
 // ── FILTER BUTTONS ──
