@@ -1,0 +1,1714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ IVAN — WEBSERV TRACKER</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+:root{
+  --cyan:#22d3ee;--cyan-dark:#0891b2;--cyan-dim:#164e63;
+  --cyan-glow:rgba(34,211,238,0.15);--cyan-glow2:rgba(34,211,238,0.08);
+  --bg:#020d14;--bg2:#040f1a;--bg3:#071520;
+  --card:#0a1e2e;--card2:#0c2438;
+  --border:rgba(34,211,238,0.12);--border2:rgba(34,211,238,0.25);
+  --text:#e0f7ff;--text-dim:#7ab8c8;--text-muted:#3d6e7a;
+  --red:#f87171;--yellow:#fbbf24;--green:#34d399;--orange:#fb923c;--purple:#a78bfa;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(34,211,238,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+body::after{content:'';position:fixed;top:-20vh;left:50%;transform:translateX(-50%);width:80vw;height:50vh;background:radial-gradient(ellipse,rgba(34,211,238,0.06) 0%,transparent 70%);pointer-events:none;z-index:0;}
+
+/* ── HEADER ── */
+header{position:sticky;top:0;z-index:100;background:rgba(2,13,20,0.94);backdrop-filter:blur(20px);border-bottom:1px solid var(--border2);padding:0 20px;}
+.header-inner{max-width:1800px;margin:0 auto;display:flex;align-items:center;gap:14px;height:58px;flex-wrap:nowrap;}
+.logo{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:1rem;color:var(--cyan);letter-spacing:.08em;white-space:nowrap;text-shadow:0 0 20px rgba(34,211,238,.5);}
+.logo span{color:var(--text-muted);}
+.phase-nav{display:flex;gap:3px;flex:1;overflow-x:auto;scrollbar-width:none;}
+.phase-nav::-webkit-scrollbar{display:none;}
+.phase-btn{background:transparent;border:1px solid transparent;color:var(--text-muted);padding:5px 11px;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:.68rem;font-weight:700;letter-spacing:.05em;white-space:nowrap;transition:all .2s;}
+.phase-btn:hover{border-color:var(--border2);color:var(--text);}
+.phase-btn.active{color:#000;border-color:transparent;}
+.filter-bar{display:flex;gap:3px;align-items:center;}
+.filter-btn{background:transparent;border:1px solid var(--border);color:var(--text-muted);padding:5px 13px;border-radius:20px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:.65rem;font-weight:700;letter-spacing:.06em;transition:all .2s;white-space:nowrap;}
+.filter-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+.filter-btn.active{background:var(--cyan);border-color:var(--cyan);color:var(--bg);}
+.progress-pill{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--cyan);background:var(--cyan-glow2);border:1px solid var(--border2);padding:4px 11px;border-radius:20px;white-space:nowrap;}
+
+/* ── MAIN ── */
+main{max-width:1800px;margin:0 auto;padding:20px;position:relative;z-index:1;}
+.phase-section{display:none;}
+.phase-section.active{display:block;animation:fadeIn .3s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── STATS ── */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
+@media(max-width:600px){.stats-bar{grid-template-columns:repeat(2,1fr);}}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;text-align:center;}
+.stat-num{font-family:'JetBrains Mono',monospace;font-size:1.7rem;font-weight:800;color:var(--cyan);text-shadow:0 0 16px rgba(34,211,238,.4);line-height:1;}
+.stat-label{font-size:.65rem;color:var(--text-muted);margin-top:3px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;}
+
+/* ── PHASE HEADER ── */
+.phase-header{display:flex;align-items:center;gap:14px;margin-bottom:20px;padding:18px 22px;background:var(--card);border:1px solid var(--border);border-radius:12px;position:relative;overflow:hidden;}
+.phase-header-icon{font-size:1.8rem;}
+.phase-header-info h2{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:800;letter-spacing:.04em;}
+.phase-header-info p{color:var(--text-dim);font-size:.8rem;margin-top:2px;}
+.phase-meta{margin-left:auto;text-align:right;flex-shrink:0;}
+.phase-meta .duration{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text-dim);}
+.phase-progress-bar{height:4px;background:rgba(255,255,255,.05);border-radius:2px;margin-top:6px;width:100px;overflow:hidden;}
+.phase-progress-fill{height:100%;border-radius:2px;transition:width .5s ease;}
+.phase-pct{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text-muted);margin-top:3px;}
+
+/* ── KANBAN ── */
+.kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+@media(max-width:860px){.kanban{grid-template-columns:1fr;}}
+.kanban-col{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;min-height:160px;}
+.col-header{display:flex;align-items:center;gap:8px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.col-dot{width:8px;height:8px;border-radius:50%;}
+.col-dot.todo{background:var(--text-muted);}
+.col-dot.doing{background:var(--yellow);box-shadow:0 0 8px var(--yellow);}
+.col-dot.done{background:var(--green);box-shadow:0 0 8px var(--green);}
+.col-title{font-family:'JetBrains Mono',monospace;font-size:.68rem;font-weight:700;letter-spacing:.1em;}
+.col-count{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text-muted);background:rgba(255,255,255,.04);padding:2px 8px;border-radius:10px;}
+
+/* ── TASK CARD ── */
+.task-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:13px 13px 13px 17px;margin-bottom:8px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+.task-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:2px 0 0 2px;opacity:.8;}
+.task-card:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,0,0,.4);}
+.task-card.hidden{display:none!important;}
+
+.task-top{display:flex;align-items:flex-start;gap:8px;}
+.task-checkbox{width:17px;height:17px;border:1.5px solid var(--border2);border-radius:4px;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;transition:all .2s;cursor:pointer;}
+.task-card.status-done .task-checkbox{background:var(--green);border-color:var(--green);}
+.task-card.status-done .task-checkbox::after{content:'✓';font-size:10px;color:#000;font-weight:900;}
+.task-card.status-doing .task-checkbox{border-color:var(--yellow);background:rgba(251,191,36,.12);}
+.task-title{font-size:.82rem;font-weight:600;line-height:1.4;color:var(--text);flex:1;}
+.task-card.status-done .task-title{color:var(--text-muted);text-decoration:line-through;}
+
+.task-meta{display:flex;align-items:center;gap:6px;margin-top:7px;flex-wrap:wrap;}
+.task-time{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text-muted);background:rgba(255,255,255,.03);border:1px solid var(--border);padding:2px 7px;border-radius:4px;}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:2px 6px;border-radius:3px;font-weight:700;letter-spacing:.04em;}
+.tag-critical{background:rgba(248,113,113,.15);color:var(--red);border:1px solid rgba(248,113,113,.2);}
+.tag-tricky{background:rgba(251,191,36,.12);color:var(--yellow);border:1px solid rgba(251,191,36,.2);}
+.tag-test{background:rgba(34,211,238,.1);color:var(--cyan);border:1px solid rgba(34,211,238,.2);}
+.tag-arch{background:rgba(167,139,250,.12);color:var(--purple);border:1px solid rgba(167,139,250,.2);}
+.tag-struct{background:rgba(251,146,60,.12);color:var(--orange);border:1px solid rgba(251,146,60,.2);}
+
+/* sub-progress on card */
+.card-subprogress{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text-muted);margin-left:auto;white-space:nowrap;}
+.card-subbar{height:2px;background:rgba(255,255,255,.05);border-radius:1px;margin-top:6px;overflow:hidden;}
+.card-subbar-fill{height:100%;border-radius:1px;transition:width .4s ease;}
+
+/* ── EXPANDED DETAIL ── */
+.task-expand{display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
+.task-card.expanded .task-expand{display:block;}
+
+/* ── TAB SWITCHER ── */
+.detail-tabs{display:flex;gap:0;margin-bottom:12px;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.detail-tab{flex:1;padding:7px 4px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:700;letter-spacing:.04em;cursor:pointer;color:var(--text-muted);background:transparent;border:none;border-right:1px solid var(--border);transition:all .15s;white-space:nowrap;}
+.detail-tab:last-child{border-right:none;}
+.detail-tab:hover{color:var(--text);background:rgba(255,255,255,.03);}
+.detail-tab.active{color:var(--bg);font-weight:800;}
+.detail-tab[data-tab="tasks"].active{background:#22d3ee;color:#000;}
+.detail-tab[data-tab="warnings"].active{background:#f87171;color:#000;}
+.detail-tab[data-tab="tricks"].active{background:#fbbf24;color:#000;}
+.detail-tab[data-tab="tests"].active{background:#34d399;color:#000;}
+
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+
+/* ── TODO CHECKLIST ── */
+.todo-list{list-style:none;}
+.todo-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid rgba(34,211,238,.05);cursor:pointer;transition:background .15s;border-radius:4px;}
+.todo-item:last-child{border-bottom:none;}
+.todo-item:hover{background:rgba(34,211,238,.03);}
+.todo-cb{width:15px;height:15px;border:1.5px solid var(--border2);border-radius:3px;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.todo-item.checked .todo-cb{background:var(--cyan);border-color:var(--cyan);}
+.todo-item.checked .todo-cb::after{content:'✓';font-size:9px;color:#000;font-weight:900;}
+.todo-item.checked .todo-text{color:var(--text-muted);text-decoration:line-through;}
+.todo-text{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text-dim);line-height:1.5;flex:1;}
+
+/* ── DETAIL LISTS ── */
+.detail-list{list-style:none;}
+.detail-list li{padding:5px 0 5px 18px;font-size:.76rem;color:var(--text-dim);line-height:1.5;border-bottom:1px solid rgba(255,255,255,.03);position:relative;}
+.detail-list li:last-child{border-bottom:none;}
+.detail-list li::before{position:absolute;left:0;font-family:'JetBrains Mono',monospace;font-size:.75rem;}
+.warn-list li::before{content:'⚠';color:var(--red);}
+.trick-list li::before{content:'⚡';color:var(--yellow);}
+.test-list li{cursor:pointer;transition:background .15s;border-radius:4px;padding-left:22px;}
+.test-list li:hover{background:rgba(52,211,153,.04);}
+.test-list li::before{content:'▷';color:var(--green);}
+.test-list li.test-done::before{content:'✓';color:var(--green);}
+.test-list li.test-done{color:var(--text-muted);text-decoration:line-through;}
+
+/* ── STATUS CONTROLS ── */
+.task-controls{display:none;gap:6px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);}
+.task-card.expanded .task-controls{display:flex;}
+.status-btn{flex:1;padding:6px 6px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:700;cursor:pointer;transition:all .15s;letter-spacing:.04em;}
+.status-btn.todo-btn:hover{border-color:var(--text-muted);color:var(--text-muted);}
+.status-btn.doing-btn:hover{border-color:var(--yellow);color:var(--yellow);}
+.status-btn.done-btn:hover{border-color:var(--green);color:var(--green);}
+.status-btn.active-todo{border-color:var(--text-muted);color:var(--text-muted);background:rgba(255,255,255,.04);}
+.status-btn.active-doing{border-color:var(--yellow);color:var(--yellow);background:rgba(251,191,36,.08);}
+.status-btn.active-done{border-color:var(--green);color:var(--green);background:rgba(52,211,153,.08);}
+
+/* timing */
+.timing-row{display:flex;align-items:center;gap:8px;margin-top:10px;}
+.timing-input{background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:4px 8px;width:62px;text-align:center;}
+.timing-input:focus{outline:none;border-color:var(--cyan);}
+.timing-label{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text-muted);}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-thumb{background:var(--cyan-dim);border-radius:3px;}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:22px;right:22px;background:var(--card2);border:1px solid var(--cyan);color:var(--cyan);padding:9px 16px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:.72rem;z-index:999;transform:translateY(80px);opacity:0;transition:all .3s;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">⚡ IVAN<span> // WEBSERV</span></div>
+    <nav class="phase-nav" id="phaseNav"></nav>
+    <div class="filter-bar">
+      <button class="filter-btn active" data-filter="all">ALL</button>
+      <button class="filter-btn" data-filter="todo">TODO</button>
+      <button class="filter-btn" data-filter="doing">DOING</button>
+      <button class="filter-btn" data-filter="done">DONE</button>
+    </div>
+    <div class="progress-pill" id="globalProgress">0 / 0</div>
+  </div>
+</header>
+
+<main>
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-label">Total Tasks</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--text-muted)" id="statTodo">0</div><div class="stat-label">To Do</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--yellow)" id="statDoing">0</div><div class="stat-label">In Progress</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--green)" id="statDone">0</div><div class="stat-label">Done</div></div>
+  </div>
+  <div id="phaseSections"></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// DATA — All phases & tickets
+// ══════════════════════════════════════════════════════
+const PHASES = [
+{
+  id:'p0', label:'P0 — ARCH', icon:'🏗️', color:'#22d3ee',
+  title:'PHASE 0 — ARCHITECTURE', subtitle:'2–3 days · No coding. Define stable contracts so everyone works independently.',
+  duration:'2–3 days',
+  tickets:[
+    {
+      id:'p0-1', title:'Define ConnectionState enum', hours:'2–3h', tags:['arch'],
+      tasks:[
+        'Create include/ConnectionState.h',
+        'Add READING_HEADERS state',
+        'Add READING_BODY state',
+        'Add PROCESSING state',
+        'Add WRITING_RESPONSE state',
+        'Add CGI_RUNNING state',
+        'Add CLOSED state',
+        'Add a stateToString(ConnectionState) debug helper',
+        'Agree with team and commit — no unilateral changes after Phase 0'
+      ],
+      warnings:[
+        'Missing CLOSED state leads to zombie connections lingering in poll()',
+        'Forgetting CGI_RUNNING causes poll() race — event loop won\'t know to watch CGI pipes',
+        'State enum not in a shared header causes include hell and ODR violations',
+        'Using int instead of enum class removes type safety — catch wrong-state bugs at compile time'
+      ],
+      tricks:[
+        'Add a CGI_RUNNING sub-state concept: note in comments whether stdin or stdout phase is active',
+        'Use enum class ConnectionState (not plain enum) to prevent accidental int comparisons',
+        'Put the enum in a namespace or use enum class — avoids name collisions with system headers'
+      ],
+      tests:[
+        'Print every state transition to stderr during Phase 1 — manually trigger each one',
+        'Ensure every state value has a matching case in the event loop switch — enable -Wswitch-enum',
+        'Feed malformed data and assert no state outside the enum is ever reached',
+        'Compile with -Wall -Wextra -Werror — zero warnings'
+      ]
+    },
+    {
+      id:'p0-2', title:'Define Connection struct (runtime only)', hours:'2–3h', tags:['arch','struct'],
+      tasks:[
+        'Create include/Connection.h',
+        'Add field: int fd',
+        'Add field: std::string recvBuffer',
+        'Add field: std::string sendBuffer',
+        'Add field: ConnectionState state',
+        'Add field: size_t bytesSent (0-initialized)',
+        'Add field: bool keepAlive',
+        'Add field: time_t lastActivity',
+        'Add field: bool requestReady',
+        'Add field: bool responseReady',
+        'Add field: int serverConfigIdx (which vhost config owns this connection)',
+        'Add resetForNextRequest() method that clears all per-request fields',
+        'Zero-init all fields in constructor'
+      ],
+      warnings:[
+        'Stuffing HTTP data into Connection = parser contamination — Connection is runtime ONLY',
+        'No bytesSent tracking → partial send corruption, client gets truncated response',
+        'lastActivity not set on construction → timeout fires immediately',
+        'requestReady / responseReady not reset on keep-alive → stale flags cause double-processing',
+        'recvBuffer growth unbounded on malicious slow client — plan max size now'
+      ],
+      tricks:[
+        'Keep Connection a plain value type — no virtuals, no heap beyond std containers',
+        'resetForNextRequest() clears recvBuffer, sendBuffer, sets bytesSent=0, requestReady=false, responseReady=false',
+        'Do NOT store any parsed HTTP in Connection — that belongs in HttpRequest which is separate'
+      ],
+      tests:[
+        'Unit: default-constructed Connection has all booleans false, bytesSent 0',
+        'Unit: resetForNextRequest() resets all per-request fields, fd and keepAlive survive',
+        'Simulate keep-alive: call reset then inject second request — verify clean state',
+        'sizeof(Connection) sanity check — log it, should be small (<256 bytes baseline)'
+      ]
+    },
+    {
+      id:'p0-3', title:'Establish EventLoop socket ownership rule', hours:'1–2h', tags:['arch','critical'],
+      tasks:[
+        'Write RULE comment block at top of EventLoop.h: ONLY EventLoop calls recv/send/close',
+        'Grep codebase for any recv/send/close outside event loop files — fix them',
+        'Create EventLoop class skeleton with addConnection(), removeConnection()',
+        'Decide: does EventLoop own Connection objects, or does a ConnectionManager?',
+        'Document CGI pipe fds as also owned by EventLoop, not CGIManager',
+        'Agree with team — write it in README or shared doc'
+      ],
+      warnings:[
+        'Any module calling recv() directly bypasses buffering and state machine — instant chaos',
+        'Double-close of fd is crash or silent UB — only one owner, only one close',
+        'Parser or router closing fd on error = double-close bomb when event loop also tries to close',
+        'CGI spawner closing a pipe fd after handing it to event loop = use-after-close'
+      ],
+      tricks:[
+        'Add a debug wrapper: int safeClose(int fd) that asserts fd >= 0 and logs in debug mode',
+        'Use RAII fd wrapper class for pipe fds — destructor closes if not yet released to event loop'
+      ],
+      tests:[
+        'grep -rn "recv\\|send\\|::close" src/ — must only appear in EventLoop.cpp',
+        'Introduce deliberate double-close in test binary — confirm ASAN/ubsan catches it',
+        'Code review: every path that creates a fd must have a documented owner'
+      ]
+    },
+    {
+      id:'p0-4', title:'Define CGIProcess struct', hours:'2h', tags:['arch','struct'],
+      tasks:[
+        'Create include/CGIProcess.h',
+        'Add field: pid_t pid (-1 initialized)',
+        'Add field: int stdinFd (-1 initialized)',
+        'Add field: int stdoutFd (-1 initialized)',
+        'Add field: time_t startTime',
+        'Add field: bool finished',
+        'Add field: std::string outputBuffer (accumulates CGI stdout)',
+        'Add field: int connectionFd (which client connection owns this CGI)',
+        'Add isTimedOut(int timeoutSecs) const helper',
+        'Add cleanup() method that closes fds and sets finished=true'
+      ],
+      warnings:[
+        'Not initializing stdinFd/stdoutFd to -1 → close(-1) = disaster (closes fd 0 or random fd)',
+        'No startTime = CGI timeout impossible',
+        'Forgetting finished flag = CGI output read after zombie already reaped → garbage data',
+        'Not linking CGIProcess to its owning connection → orphaned response when CGI finishes'
+      ],
+      tricks:[
+        'Store stdoutFd in poll() alongside connection fds — same event loop, same treatment',
+        'Map cgi_stdout_fd → Connection* in EventLoop so incoming CGI data routes to correct client',
+        'cleanup() must be idempotent — safe to call twice'
+      ],
+      tests:[
+        'Spawn trivial child (echo hello), verify all CGIProcess fields set correctly before execve',
+        'Print CGIProcess before and after spawn — assert no garbage values, all fds > 0',
+        'Call cleanup() twice — second call must not crash (idempotent check)',
+        'isTimedOut() with startTime = now-100, timeout=30 — must return true'
+      ]
+    },
+    {
+      id:'p0-5', title:'Agree on parser.feed() interface contract', hours:'2–3h', tags:['arch','critical'],
+      tasks:[
+        'Define ParseResult enum: PARSE_INCOMPLETE, PARSE_COMPLETE, PARSE_ERROR',
+        'Define feed() signature: ParseResult feed(const char* data, size_t len)',
+        'Agree: feed() returns bytes consumed (not just status) so caller knows offset',
+        'Write FakeParser class that implements this interface using \\r\\n\\r\\n detection',
+        'Verify FakeParser compiles and works end-to-end in Phase 1 skeleton',
+        'Document: parser NEVER touches sockets, NEVER closes fds',
+        'Agree on error codes: what does PARSE_ERROR carry (statusCode? message?)'
+      ],
+      warnings:[
+        'Parser owning sockets = coupling nightmare — must never happen',
+        'feed() returning void = no way to signal completion or error to caller',
+        'No error return from feed() = silent parse failure, server sends garbage response',
+        'Feed returning bool instead of enum = cannot distinguish INCOMPLETE from ERROR'
+      ],
+      tricks:[
+        'ParseResult should carry bytes consumed even on COMPLETE — body might follow in same buffer',
+        'FakeParser is your shield: if Alona\'s parser is late, you use FakeParser and ship anyway',
+        'Interface must be identical between FakeParser and RealParser — polymorphism or template'
+      ],
+      tests:[
+        'FakeParser: feed "GET / HTTP/1.1\\r\\n\\r\\n" → PARSE_COMPLETE',
+        'FakeParser: feed "GET / HTTP" (partial) → PARSE_INCOMPLETE',
+        'Feed same buffer twice → must not double-process (idempotent until reset)',
+        'Compile shared headers with make from clean — zero errors, zero warnings'
+      ]
+    },
+    {
+      id:'p0-6', title:'Folder structure + shared headers compiling', hours:'2–3h', tags:['arch'],
+      tasks:[
+        'Create src/network/ — EventLoop, Connection, socket utils',
+        'Create src/cgi/ — CGIProcess, CGIManager, env builder',
+        'Create src/http/ — parser interface, request/response structs',
+        'Create src/config/ — config structs (consumed but not parsed by Ivan)',
+        'Create include/ — all shared headers',
+        'Write Makefile with proper dependency tracking',
+        'Verify: make from clean compiles all shared headers with zero errors',
+        'Add .clang-format with agreed style',
+        'Add compile_commands.json generation for IDE support'
+      ],
+      warnings:[
+        'Circular includes between modules are fatal and hard to debug later',
+        'Missing include guards = ODR violations that surface as linker errors',
+        'Header-only implementations = recompile everything on any change',
+        'Flat src/ = file conflict chaos when 3 people work simultaneously'
+      ],
+      tricks:[
+        'Use #pragma once in addition to or instead of include guards — simpler and works on all modern compilers',
+        'Include each header standalone in an empty .cpp to verify it has no hidden dependencies',
+        'Makefile should have a check target: run include-what-you-use or similar'
+      ],
+      tests:[
+        'rm -rf *.o obj/ && make — must succeed from zero',
+        'Each header: g++ -std=c++17 -Wall include/X.h → zero errors independently',
+        'Three team members pull and run make in parallel — no conflicts',
+        'Check for circular includes: include-what-you-use or manual grep'
+      ]
+    }
+  ]
+},
+{
+  id:'p1', label:'P1 — MINIMAL', icon:'🔌', color:'#38bdf8',
+  title:'PHASE 1 — MINIMAL SERVER', subtitle:'Week 1 · First complete request lifecycle. NOT correctness — just: recv → parse → route → send.',
+  duration:'Week 1',
+  tickets:[
+    {
+      id:'p1-1', title:'Create listening socket (hardcoded 8080)', hours:'1–2h', tags:['critical'],
+      tasks:[
+        'Call socket(AF_INET, SOCK_STREAM, 0) and check return value',
+        'Call setsockopt(SO_REUSEADDR) BEFORE bind()',
+        'Call bind() to 0.0.0.0:8080',
+        'Call listen() with backlog 128',
+        'Set socket nonblocking with fcntl(fd, F_SETFL, O_NONBLOCK)',
+        'Add listening fd to pollfds with POLLIN',
+        'Log: "Listening on :8080"'
+      ],
+      warnings:[
+        'Missing SO_REUSEADDR = "address already in use" on every restart during development',
+        'Forgetting nonblocking = accept() blocks entire server on slow connect',
+        'Setting nonblocking AFTER listen() is fine but do it BEFORE the poll loop starts',
+        'Not checking socket() return value = using fd -1 as if valid'
+      ],
+      tricks:[
+        'Set nonblocking with: fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) — preserve existing flags',
+        'Backlog of 128 is standard; SOMAXCONN lets OS pick the maximum'
+      ],
+      tests:[
+        'nc localhost 8080 immediately after start — must connect without hanging',
+        'Kill server, restart — must not fail with EADDRINUSE',
+        'strace ./webserv 2>&1 | head -30 — verify socket→setsockopt→bind→listen order',
+        'ss -tlnp | grep 8080 — must show LISTEN'
+      ]
+    },
+    {
+      id:'p1-2', title:'Build poll() event loop skeleton', hours:'3–4h', tags:['critical'],
+      tasks:[
+        'Create std::vector<pollfd> pollfds',
+        'Create std::unordered_map<int, Connection> connections',
+        'Add listening fd to pollfds at startup',
+        'Write main while(running) loop',
+        'Call poll(pollfds.data(), pollfds.size(), 1000) — 1s timeout for periodic checks',
+        'Iterate revents after poll() returns',
+        'Dispatch: POLLIN on listen fd → handleAccept()',
+        'Dispatch: POLLIN on client fd → handleRead()',
+        'Dispatch: POLLOUT on client fd → handleWrite()',
+        'Add pending-add and pending-remove lists to avoid iterator invalidation',
+        'Apply pending lists AFTER iteration loop completes'
+      ],
+      warnings:[
+        'Calling poll() with empty fds vector = UB on some platforms',
+        'poll() timeout of 0 = busy loop, 100% CPU',
+        'Modifying pollfds vector WHILE iterating it = iterator corruption and crash',
+        'Iterating with index and removing by index without care = skipped events'
+      ],
+      tricks:[
+        'Collect fds to add/remove in separate vectors during the loop, apply after',
+        'Use index-based loop (not iterators) so you can safely mark entries invalid',
+        'Keep a map fd→index for O(1) pollfd lookup when updating events'
+      ],
+      tests:[
+        'Run server with no clients — top shows near 0% CPU',
+        'Attach 50 clients simultaneously — poll() must not crash or lose any',
+        'Remove a connection mid-loop (simulate via flag) — no segfault, correct cleanup',
+        'valgrind --tool=memcheck ./webserv — zero errors on startup/shutdown'
+      ]
+    },
+    {
+      id:'p1-3', title:'accept() new connections', hours:'2h', tags:[],
+      tasks:[
+        'When POLLIN fires on listening fd: call accept()',
+        'Loop accept() until it returns EAGAIN — one poll event may have many pending',
+        'Set accepted fd nonblocking immediately',
+        'Create Connection object for accepted fd',
+        'Set connection.lastActivity = time(NULL)',
+        'Set connection.state = READING_HEADERS',
+        'Add accepted fd to pollfds with POLLIN',
+        'Insert Connection into connections map',
+        'Log: "Accepted connection fd=X from IP:port"'
+      ],
+      warnings:[
+        'Not looping accept() = missing connections when many arrive at same poll() wake',
+        'Not setting accepted fd nonblocking = one slow client blocks all reads',
+        'Forgetting to add to pollfds = Connection exists but never gets events',
+        'Accepting and not checking for accept() == -1 with errno == EAGAIN as normal'
+      ],
+      tricks:[
+        'accept() in a while loop: while ((fd = accept(listenFd,...)) != -1) { ... }',
+        'Use getpeername() after accept() to log client IP for debugging'
+      ],
+      tests:[
+        'Connect 100 clients simultaneously — all must get Connection objects (check map size)',
+        'Close a client externally (kill nc) — fd must be cleaned up from map and pollfds',
+        'Reconnect with same source port — no stale state from previous connection'
+      ]
+    },
+    {
+      id:'p1-4', title:'recv() into recvBuffer', hours:'2h', tags:['critical'],
+      tasks:[
+        'When POLLIN fires on client fd: call recv(fd, buf, sizeof(buf), 0)',
+        'Handle recv() == 0: client closed connection → cleanup',
+        'Handle recv() == -1 with EAGAIN: normal, return without error',
+        'Handle recv() == -1 with other errno: log error, cleanup connection',
+        'Append received bytes to connection.recvBuffer',
+        'Update connection.lastActivity = time(NULL)',
+        'Call handleRequestComplete() to check if request is ready'
+      ],
+      warnings:[
+        'recv() == 0 means client closed — NOT an error — but must trigger cleanup',
+        'recv() == -1 with EAGAIN is normal nonblocking behavior — NOT an error',
+        'Assuming one recv() = one complete request = wrong 100% of the time under load',
+        'Fixed-size local buffer overflow if you forget to bounds-check before appending'
+      ],
+      tricks:[
+        'Use a fixed local buf[8192] for the recv call, then append to std::string recvBuffer',
+        'EAGAIN and EWOULDBLOCK are the same on Linux but check both for portability'
+      ],
+      tests:[
+        'nc localhost 8080 and type one character at a time — recvBuffer must accumulate',
+        'Disconnect mid-send from client side — recv() returns 0, connection cleaned up',
+        'Send 1MB in one write() from client — server must accumulate all bytes correctly'
+      ]
+    },
+    {
+      id:'p1-5', title:'Fake request completion (\\r\\n\\r\\n detection)', hours:'1h', tags:['tricky'],
+      tasks:[
+        'After recv(), search recvBuffer for "\\r\\n\\r\\n"',
+        'Search only from max(0, size-4) backwards to avoid O(n²) on large buffers',
+        'When found: set connection.requestReady = true',
+        'Set connection.state = PROCESSING',
+        'This logic will be replaced by real parser in Phase 2 — mark with // TODO: replace with parser.feed()'
+      ],
+      warnings:[
+        'Searching entire recvBuffer from start on every recv() = O(n²) on large requests',
+        'Triggering on \\n\\n instead of \\r\\n\\r\\n = RFC violation, breaks real browsers',
+        'Not handling the case where \\r\\n\\r\\n spans two recv() calls (split across buffer boundary)'
+      ],
+      tricks:[
+        'Search from position max(0, recvBuffer.size()-4) going backwards — catches split boundary',
+        'Use std::string::find starting from an offset to avoid re-scanning old data'
+      ],
+      tests:[
+        'Send request split across 10 recv() calls — must only trigger once',
+        'Send \\n\\n (Unix line endings) — must NOT trigger',
+        'Send two pipelined requests: second \\r\\n\\r\\n must not trigger during first request processing'
+      ]
+    },
+    {
+      id:'p1-6', title:'Build fake HTTP response + send()', hours:'2–3h', tags:['critical'],
+      tasks:[
+        'When state == PROCESSING: build fake response string',
+        'Response: "HTTP/1.1 200 OK\\r\\nContent-Length: 5\\r\\nConnection: close\\r\\n\\r\\nhello"',
+        'Set connection.sendBuffer = response',
+        'Set connection.bytesSent = 0',
+        'Set connection.state = WRITING_RESPONSE',
+        'Enable POLLOUT on this fd (add to pollfd events)',
+        'When POLLOUT fires: call send(fd, sendBuffer.data()+bytesSent, remaining, MSG_NOSIGNAL)',
+        'Handle partial send: update bytesSent, keep POLLOUT enabled if not done',
+        'When all bytes sent: disable POLLOUT, close connection (Phase 1 — no keep-alive yet)',
+        'Remove connection from map and pollfds on close'
+      ],
+      warnings:[
+        'Missing Content-Length header = browser hangs waiting for EOF',
+        'Calling send() once and assuming all data sent = truncated response under load',
+        'Not removing POLLOUT after send complete = infinite POLLOUT spinning loop',
+        'Closing fd without removing from pollfds = POLLNVAL on next poll() = crash'
+      ],
+      tricks:[
+        'MSG_NOSIGNAL on send() prevents SIGPIPE crash when client disconnects during send',
+        'Track bytesSent to resume partial sends: remaining = sendBuffer.size() - bytesSent',
+        'Only enable POLLOUT when sendBuffer is non-empty — never set it preemptively'
+      ],
+      tests:[
+        'curl http://localhost:8080 — must return "hello" with status 200',
+        'Browser open localhost:8080 — must display "hello" without spinning',
+        'Send 10MB fake response — client must receive exact byte count',
+        '50 simultaneous curl — all get complete response, none truncated'
+      ]
+    },
+    {
+      id:'p1-7', title:'Browser + telnet manual validation', hours:'1–2h', tags:['test'],
+      tasks:[
+        'Open http://localhost:8080 in Chrome — verify "hello" displays',
+        'Open http://localhost:8080 in Firefox — verify "hello" displays',
+        'telnet localhost 8080 → type "GET / HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n" → see response',
+        'curl -v http://localhost:8080 — inspect headers in verbose output',
+        'Launch 20 simultaneous curl requests: for i in $(seq 20); do curl localhost:8080 & done',
+        'Confirm server does not crash under 20 concurrent connections',
+        'Monitor with top/htop — CPU should spike briefly then drop'
+      ],
+      warnings:[
+        'Browser sends unexpected headers (Accept, Cookie, etc.) that may confuse fake parser',
+        'telnet line endings vary — type \\r\\n manually or use printf',
+        'Chrome may reuse connections — add Connection: close to fake response for Phase 1'
+      ],
+      tricks:[
+        'Use printf "GET / HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n" | nc localhost 8080 — more reliable than manual telnet',
+        'wireshark or tcpdump -A -i lo port 8080 — see exact bytes on wire'
+      ],
+      tests:[
+        'All 3 browsers show "hello" — no hang, no error',
+        'telnet test completes — response received within 1s',
+        '20 simultaneous curl — all 20 return 200, server still running after'
+      ]
+    }
+  ]
+},
+{
+  id:'p2', label:'P2 — REAL HTTP', icon:'📡', color:'#818cf8',
+  title:'PHASE 2 — REAL HTTP', subtitle:'Week 2 · Survive real browsers. Still no config, no CGI.',
+  duration:'Week 2',
+  tickets:[
+    {
+      id:'p2-1', title:'Connection state machine (READING/PROCESSING/WRITING/CLOSED)', hours:'4–6h', tags:['arch','critical'],
+      tasks:[
+        'Create handleState(Connection&) dispatcher function',
+        'Implement handleReadingHeaders(): recv() + feed to parser',
+        'Implement handleReadingBody(): accumulate body bytes',
+        'Implement handleProcessing(): call router (fake), build response',
+        'Implement handleWritingResponse(): partial send loop',
+        'Implement handleClosed(): cleanup fds, remove from map',
+        'Add state transition logging in debug mode',
+        'Draw state diagram on paper first — agree with self before coding'
+      ],
+      warnings:[
+        'No state machine = spaghetti flag checking everywhere, impossible to debug',
+        'Transition bug: going WRITING→READING without resetForNextRequest() = corrupted next request',
+        'Processing while still in READING state = operating on partial request',
+        'Any state not handled in dispatcher switch = silent no-op, request hangs forever'
+      ],
+      tricks:[
+        'Every state has exactly ONE handler function — never inline state logic in the loop',
+        'Use -Wswitch-enum to force handling every enum value in switch',
+        'Log transitions: "fd=X: READING_HEADERS → PROCESSING" — invaluable during debug'
+      ],
+      tests:[
+        'Log every state transition — manually trace one full request end-to-end',
+        'Feed partial request — connection must stay in READING_HEADERS',
+        'Full request → PROCESSING → WRITING → READING (keep-alive) transition verified',
+        'Connection-close header → WRITING → CLOSED verified'
+      ]
+    },
+    {
+      id:'p2-2', title:'Partial recv() accumulation + parser integration', hours:'3–4h', tags:['critical','tricky'],
+      tasks:[
+        'Replace \\r\\n\\r\\n hack with FakeParser::feed() calls',
+        'Loop: recv() → append to recvBuffer → call parser.feed()',
+        'Track parseOffset into recvBuffer — don\'t re-feed already-processed bytes',
+        'Handle PARSE_INCOMPLETE: stay in READING state, continue',
+        'Handle PARSE_COMPLETE: transition to PROCESSING',
+        'Handle PARSE_ERROR: send 400 Bad Request, close connection',
+        'Handle leftover bytes after header end (start of body or next pipelined request)'
+      ],
+      warnings:[
+        'Assuming recv() delivers exactly one request is wrong 100% of the time',
+        'Re-feeding entire recvBuffer from start each recv() = O(n²) and double-processing',
+        'Not handling pipelined requests = second request in buffer is lost',
+        'Buffer growing unbounded on malicious client — add max size check'
+      ],
+      tricks:[
+        'parseOffset tracks how many bytes have been fed to parser — only feed new bytes',
+        'After PARSE_COMPLETE: remaining bytes in recvBuffer past header end = body or next request'
+      ],
+      tests:[
+        'nc localhost 8080 — type request one character at a time — completes correctly',
+        'Send 3 pipelined requests in one TCP segment — all 3 handled in order',
+        'Slowloris: send headers 1 byte/sec — timeout must fire before completion'
+      ]
+    },
+    {
+      id:'p2-3', title:'Partial send() with bytesSent tracking', hours:'3–4h', tags:['critical'],
+      tasks:[
+        'In handleWritingResponse(): calculate remaining = sendBuffer.size() - bytesSent',
+        'Call send(fd, data+bytesSent, remaining, MSG_NOSIGNAL)',
+        'If send() returns n > 0: bytesSent += n',
+        'If bytesSent == sendBuffer.size(): send complete — transition state',
+        'If send() == -1 with EAGAIN: disable POLLOUT temporarily, re-enable next cycle',
+        'If send() == -1 with other errno: log + cleanup connection',
+        'Disable POLLOUT immediately after buffer is fully sent',
+        'Reset bytesSent = 0 and clear sendBuffer after send complete'
+      ],
+      warnings:[
+        'Calling send() once and assuming done = data corruption on slow/loaded clients',
+        'Not removing POLLOUT after send complete = infinite busy loop eating CPU',
+        'bytesSent not reset on new response = wrong offset, corrupted response'
+      ],
+      tricks:[
+        'Enable POLLOUT only when sendBuffer is non-empty — toggle it programmatically',
+        'Helper: updatePollEvents(fd, events) to keep pollfd in sync with Connection state'
+      ],
+      tests:[
+        'Send 10MB response — client receives exact byte count (verify with wc -c)',
+        'Throttle client receive window (SO_RCVBUF) — server must not crash or busy-loop',
+        'Zero sendBuffer: POLLOUT must not be set (verify with strace poll() args)'
+      ]
+    },
+    {
+      id:'p2-4', title:'Keep-alive basics (multiple requests per connection)', hours:'3–4h', tags:['tricky'],
+      tasks:[
+        'Parse Connection: keep-alive / close header from request (use FakeParser for now)',
+        'Set connection.keepAlive based on HTTP version and Connection header',
+        'After send complete: if keepAlive → call resetForNextRequest(), go to READING_HEADERS',
+        'After send complete: if !keepAlive → close connection',
+        'resetForNextRequest() must: clear sendBuffer, clear recvBuffer (or advance past consumed), zero bytesSent, reset state, keep fd and keepAlive',
+        'Add Connection: keep-alive or Connection: close to response headers based on flag'
+      ],
+      warnings:[
+        'sendBuffer not cleared before reuse = leftover data prepended to next response',
+        'recvBuffer not cleared = leftover bytes from previous request treated as new request',
+        'bytesSent not zeroed = wrong offset into new response = garbage sent'
+      ],
+      tricks:[
+        'HTTP/1.1 defaults to keep-alive; HTTP/1.0 defaults to close — handle both',
+        'Test pipelined requests: 5 in one TCP packet, all must receive correct responses in order'
+      ],
+      tests:[
+        'curl --http1.1 -v localhost:8080 — send 5 requests same connection',
+        'Browser spam refresh 20 times — all succeed, connection count stays bounded',
+        'curl --http1.0 — server must close after each response'
+      ]
+    },
+    {
+      id:'p2-5', title:'Timeout system (idle clients die)', hours:'3–4h', tags:['critical'],
+      tasks:[
+        'After poll() returns: run checkTimeouts() pass over all connections',
+        'checkTimeouts(): for each connection, if time(NULL) - lastActivity > TIMEOUT → mark for removal',
+        'Collect expired fds in a vector during checkTimeouts() — don\'t modify pollfds during iteration',
+        'For each expired fd: send 408 Request Timeout if in READING state, then close',
+        'Remove from connections map and pollfds after iteration',
+        'Define TIMEOUT constant (30 seconds recommended for dev)',
+        'Update lastActivity on every recv() and send()'
+      ],
+      warnings:[
+        'Checking timeout inside recv() = idle clients with no activity never caught',
+        'Cleaning up connection INSIDE poll iteration = iterator invalidation crash',
+        'time(NULL) is coarse (1s resolution) — acceptable for timeouts, not for perf measurement',
+        'Too-aggressive timeout kills legitimate large uploads — Phase 4 will need upload-specific timeout'
+      ],
+      tricks:[
+        'Collect expired fds first, then clean them up — two-pass approach avoids invalidation',
+        'Log: "fd=X timed out after Xs idle" — very useful during stress testing'
+      ],
+      tests:[
+        'Connect with nc, send nothing — must disconnect after TIMEOUT seconds',
+        'Active client downloading large response — must NOT be timed out mid-transfer',
+        'Slowloris: must be killed by timeout before completing headers'
+      ]
+    },
+    {
+      id:'p2-6', title:'Dynamic POLLIN/POLLOUT flag toggling', hours:'2–3h', tags:['tricky'],
+      tasks:[
+        'Write helper: void setPollEvents(int fd, short events) that updates pollfds entry',
+        'In handleProcessing(): when response ready, call setPollEvents(fd, POLLIN|POLLOUT)',
+        'In handleWritingResponse(): when send buffer empty, call setPollEvents(fd, POLLIN)',
+        'In handleReadingHeaders/Body(): ensure only POLLIN is set',
+        'When removing connection: remove fd from pollfds entirely',
+        'Keep a map fd→pollfd_index for O(1) access'
+      ],
+      warnings:[
+        'Always having POLLOUT set = server busy-loops when nothing to send, 100% CPU',
+        'Not setting POLLOUT when response is ready = response never sent, client hangs',
+        'Updating Connection.events but not the actual pollfd entry = desync, events ignored'
+      ],
+      tricks:[
+        'Both the pollfd in the vector AND the Connection\'s tracked events must be updated together — wrap in one function',
+        'Test by logging pollfds events flags — verify POLLOUT appears/disappears correctly'
+      ],
+      tests:[
+        'Monitor CPU with no clients — must be near 0%',
+        'Send request — POLLOUT must appear in poll events for that fd',
+        'After send complete — POLLOUT must disappear (verify via strace poll())'
+      ]
+    },
+    {
+      id:'p2-7', title:'ab benchmark 1000 req / 100 concurrent', hours:'1–2h', tags:['test'],
+      tasks:[
+        'Run: ab -n 1000 -c 100 http://localhost:8080/',
+        'Verify: Failed requests = 0',
+        'Verify: Non-2xx responses = 0',
+        'Run slow header test: nc localhost 8080 with 1s sleep between each header line',
+        'Check fd leaks: lsof -p $(pgrep webserv) | wc -l — must stay flat over time',
+        'Run with valgrind for one quick ab run — check for memory errors'
+      ],
+      warnings:[
+        'ab reports errors if Content-Length is wrong — verify every response',
+        'High concurrency exposes poll() corruption bugs you didn\'t know existed',
+        '"Connection reset by peer" errors in ab = server closing connection incorrectly'
+      ],
+      tricks:[
+        'Run ab AFTER fixing all partial send/recv — otherwise numbers are meaningless',
+        'ab -k enables keep-alive testing: ab -n 1000 -c 100 -k localhost:8080/'
+      ],
+      tests:[
+        'ab -n 1000 -c 100: 0 failed requests, 0 non-2xx',
+        'ab -n 1000 -c 100 -k (keep-alive): same results',
+        'lsof | grep webserv | wc -l stays constant after 1000 requests'
+      ]
+    }
+  ]
+},
+{
+  id:'p3', label:'P3 — CONFIG', icon:'⚙️', color:'#a78bfa',
+  title:'PHASE 3 — CONFIG SYSTEM', subtitle:'Week 3 · Replace hardcoded port with real config. Transport barely changes.',
+  duration:'Week 3',
+  tickets:[
+    {
+      id:'p3-1', title:'Consume ServerConfig vector (mock if Ravi not done)', hours:'2–3h', tags:['arch'],
+      tasks:[
+        'Agree with Ravi on ServerConfig struct fields Ivan needs: host, port, serverName',
+        'Create hardcoded vector<ServerConfig> for use until real parser is ready',
+        'ServerManager::boot(const vector<ServerConfig>&) — takes configs, not file path',
+        'Ivan does NOT care about parsing — only consumes the finished struct',
+        'Verify: swap hardcoded vector for real parsed result = zero code changes in Ivan\'s code',
+        'Make ServerConfig const after boot — no mutation during runtime'
+      ],
+      warnings:[
+        'Tight coupling to config parser implementation = can\'t test without parser',
+        'Assuming exactly one ServerConfig = breaks multi-vhost at last minute',
+        'Config struct mutation after boot = undefined runtime behavior, data races'
+      ],
+      tricks:[
+        'Ivan\'s mock: vector<ServerConfig> configs = { {.host="0.0.0.0",.port=8080}, {.port=8081} }',
+        'Use const ServerConfig* in Connection to reference which vhost config owns this connection'
+      ],
+      tests:[
+        'Hardcode 2 configs, verify both ports bind and accept connections',
+        'Swap in real config parser output — server boots identically',
+        'Config with invalid port 99999 — boot() must return error, not crash'
+      ]
+    },
+    {
+      id:'p3-2', title:'Create listening socket per ServerConfig', hours:'3–4h', tags:['critical'],
+      tasks:[
+        'Replace single listening socket with vector<int> listenFds',
+        'For each ServerConfig: create socket, setsockopt, bind, listen, set nonblocking',
+        'Build map<int, const ServerConfig*> listenFdToConfig for O(1) lookup',
+        'Add all listenFds to pollfds with POLLIN',
+        'In handleAccept(): look up ServerConfig from listenFd → tag Connection with it',
+        'On partial startup failure: close all already-opened listenFds before returning error'
+      ],
+      warnings:[
+        'Not tracking listenFd → ServerConfig mapping = wrong vhost config applied to connections',
+        'Partial startup: 3 ports bind, 4th fails — must close the 3 or ports stay open until process dies',
+        'Adding all listenFds to pollfds but dispatching accept to wrong fd = connection on wrong vhost'
+      ],
+      tricks:[
+        'Iterate listenFds on POLLIN event — check each one: if (revents & POLLIN && isListenFd(fd)) handleAccept()',
+        'RAII wrapper for listenFds: destructor closes all on failure'
+      ],
+      tests:[
+        'Bind 8080 and 8081 — both accept connections independently',
+        'Request to :8080 — Connection.serverConfig points to first ServerConfig',
+        'Request to :8081 — Connection.serverConfig points to second ServerConfig'
+      ]
+    },
+    {
+      id:'p3-3', title:'Handle 3+ ports simultaneously', hours:'2–3h', tags:[],
+      tasks:[
+        'Test with 3 different ports: 8080, 8081, 9090',
+        'Verify all 3 added to pollfds at startup',
+        'Verify POLLIN on any of the 3 triggers correct handleAccept()',
+        'Verify connections from each port get correct ServerConfig',
+        'Log which port each connection arrives on',
+        'Run ss -tlnp to verify all 3 ports in LISTEN state'
+      ],
+      warnings:[
+        'poll() loop only watching listening fd 0 initially — hardcoded index assumption',
+        'Accept on wrong listenFd index due to off-by-one in pollfds = wrong vhost',
+        'Forgetting to add all listenFds to pollfds — some ports silently ignored'
+      ],
+      tricks:[
+        'isListenFd(fd) helper: check if fd is in the listenFds set — O(1) with unordered_set',
+        'Test with 5 ports to catch any n=2 assumptions baked into the code'
+      ],
+      tests:[
+        'curl :8080, :8081, :9090 simultaneously — all respond with correct server identity',
+        '50 clients to each port concurrently — all served',
+        'ss -tlnp shows all 3 ports LISTEN immediately after boot'
+      ]
+    },
+    {
+      id:'p3-4', title:'Graceful duplicate/in-use port handling', hours:'2h', tags:['tricky'],
+      tasks:[
+        'If bind() fails with EADDRINUSE: log "Port X already in use", return error from boot()',
+        'If bind() fails with other errno: log errno string, return error',
+        'If config has duplicate port numbers: detect before binding, log error',
+        'On any bind failure: close all successfully-opened listenFds before returning',
+        'Test: run two webserv instances on same port — second must fail cleanly',
+        'Verify: netstat/ss shows no phantom sockets after failure'
+      ],
+      warnings:[
+        'bind() return value not checked = silently ignoring failed bind, port not actually open',
+        'Error message not indicating WHICH port failed = impossible to debug in multi-port config',
+        'SO_REUSEADDR vs SO_REUSEPORT — know the difference: REUSEADDR allows rebind after TIME_WAIT'
+      ],
+      tricks:[
+        'strerror(errno) in error message: "bind() failed on port 8080: Address already in use"',
+        'Detect duplicate ports in config before any bind() calls — fail fast'
+      ],
+      tests:[
+        'Start server on 8080, start second instance on 8080 — second logs error and exits',
+        'Config with port 8080 listed twice — single bind or clear logged error',
+        'After failure: ss -tlnp shows no leftover sockets from the failed instance'
+      ]
+    }
+  ]
+},
+{
+  id:'p4', label:'P4 — UPLOADS', icon:'📦', color:'#fb923c',
+  title:'PHASE 4 — POST + UPLOADS', subtitle:'Week 4 · Body handling. Complexity rises massively.',
+  duration:'Week 4',
+  tickets:[
+    {
+      id:'p4-1', title:'Large body accumulation (READING_BODY state)', hours:'3–4h', tags:['critical'],
+      tasks:[
+        'After PARSE_COMPLETE on headers: check Content-Length to know expected body size',
+        'Transition to READING_BODY state if body expected',
+        'In handleReadingBody(): recv() → append to body buffer',
+        'Track bodyBytesRead vs expected Content-Length',
+        'When bodyBytesRead == Content-Length: transition to PROCESSING',
+        'Pass body to parser/route handler for POST processing',
+        'Add body size limit check: if Content-Length > maxBodySize → send 413, close'
+      ],
+      warnings:[
+        'Using std::string for binary body = null-byte truncation — use std::vector<char> or treat string as binary',
+        'No upper bound on buffer = 100GB upload attack crashes server with OOM',
+        'Not using Content-Length to detect completion = reading forever or cutting too early'
+      ],
+      tricks:[
+        'Check Content-Length BEFORE accumulating — reject oversized uploads immediately with 413',
+        'Body may arrive across hundreds of recv() calls — keep accumulating until bodyBytesRead >= expected'
+      ],
+      tests:[
+        'curl -d @10mb.bin localhost:8080/upload — full body received, Content-Length matches',
+        'Send body in 1-byte chunks via nc — accumulates correctly',
+        'Body exactly at limit: accepted. 1 byte over: 413 returned'
+      ]
+    },
+    {
+      id:'p4-2', title:'Max body size protection', hours:'2–3h', tags:['critical','tricky'],
+      tasks:[
+        'Define maxBodySize from ServerConfig (or hardcode for now)',
+        'Check Content-Length header against maxBodySize before body accumulation starts',
+        'If Content-Length > maxBodySize: send 413 Payload Too Large immediately',
+        'If no Content-Length: accumulate with running size check, cut off at limit',
+        'After sending 413: close connection (don\'t try to drain body)',
+        'Log: "Body size X exceeds limit Y — sending 413"'
+      ],
+      warnings:[
+        'Checking size only AFTER full accumulation = server already OOM before check runs',
+        'Closing without any response when oversized = client hangs (connection reset is OK for huge bodies)',
+        'Not draining remaining body data = TCP RST instead of graceful close — acceptable but document it'
+      ],
+      tricks:[
+        'Reject based on Content-Length header first — before accepting even one byte of body',
+        '413 must include Content-Length: 0 or the client\'s http library may wait for body'
+      ],
+      tests:[
+        'curl 200MB to server with 10MB limit — gets 413 quickly, not after download',
+        'Valid large body just under limit — succeeds normally',
+        'No Content-Length, streaming body exceeds limit mid-stream — server cuts off with 413'
+      ]
+    },
+    {
+      id:'p4-3', title:'Slowloris / slow upload timeout defense', hours:'2–3h', tags:['critical'],
+      tasks:[
+        'Existing idle timeout applies to READING_BODY state too — verify this works',
+        'Add per-request max duration timeout (separate from idle timeout)',
+        'Define REQUEST_TIMEOUT constant (e.g. 60s for body, different from 30s idle)',
+        'Store requestStartTime on Connection when request begins',
+        'In checkTimeouts(): also check requestStartTime if in READING_BODY state',
+        'On request timeout: send 408, close connection'
+      ],
+      warnings:[
+        'Idle timeout based on lastActivity — updates on each recv() so slow uploads bypass it',
+        'Too-aggressive request timeout = legitimate 500MB upload rejected mid-transfer',
+        'Not updating lastActivity during body recv = legitimate upload times out'
+      ],
+      tricks:[
+        'Two separate timeouts: idleTimeout (no activity) and requestTimeout (max duration)',
+        'Large legitimate uploads should have longer requestTimeout — consider making it config-driven'
+      ],
+      tests:[
+        'Slowloris: send 1 byte every 5s — must be killed at idle timeout',
+        'Large legitimate upload 500MB over slow connection — must NOT timeout prematurely',
+        'curl --speed-limit 1 --speed-time 30 — simulates ultra-slow client'
+      ]
+    },
+    {
+      id:'p4-4', title:'Client disconnect during body (recv()=0 mid-upload)', hours:'2h', tags:['critical','tricky'],
+      tasks:[
+        'Handle recv() == 0 during READING_BODY state — client disconnected mid-upload',
+        'Cleanup: close fd, remove from pollfds, remove from connections map',
+        'Clean up any partial body buffer to avoid memory accumulation',
+        'Add signal(SIGPIPE, SIG_IGN) at server startup to prevent crash on write to closed socket',
+        'Log: "Client fd=X disconnected during body upload at byte Y of Z"'
+      ],
+      warnings:[
+        'Continuing to process partial body = serving incomplete data to application layer',
+        'SIGPIPE crash if send() attempted on closed socket without MSG_NOSIGNAL or SIG_IGN',
+        'Partial body not freed = memory accumulates across many disconnects under attack'
+      ],
+      tricks:[
+        'signal(SIGPIPE, SIG_IGN) at main() startup — simplest fix, set it once and forget',
+        'Also use MSG_NOSIGNAL on every send() call as defense in depth'
+      ],
+      tests:[
+        'curl a large upload, Ctrl+C at 50% — server cleans up, stays responsive',
+        'Verify no SIGPIPE errors in server log after disconnect',
+        'lsof after 100 disconnect-mid-upload events — fd count must not grow'
+      ]
+    }
+  ]
+},
+{
+  id:'p5', label:'P5 — CGI', icon:'🐍', color:'#f87171',
+  title:'PHASE 5 — CGI', subtitle:'Week 5 · The hardest integration. This phase destroys weak architectures.',
+  duration:'Week 5',
+  tickets:[
+    {
+      id:'p5-1', title:'CGIProcess struct + pipe() setup', hours:'3–4h', tags:['arch','critical'],
+      tasks:[
+        'Create CGIProcess struct with pid(-1), stdinFd(-1), stdoutFd(-1), startTime, finished',
+        'Add outputBuffer to accumulate CGI stdout chunks',
+        'Add connectionFd field to route output to correct client',
+        'Call pipe(stdinPipe) for CGI stdin',
+        'Call pipe(stdoutPipe) for CGI stdout',
+        'Set all pipe fds nonblocking with fcntl(F_SETFL, O_NONBLOCK)',
+        'Add map<int,int> cgiFdToConnFd in EventLoop for routing CGI output'
+      ],
+      warnings:[
+        'Not initializing fds to -1 → close(-1) = undefined behavior (may close stdin!)',
+        'Creating pipes AFTER fork = pipes not shared between processes',
+        'Not setting pipe fds nonblocking = reading CGI stdout blocks entire event loop'
+      ],
+      tricks:[
+        'Create BOTH pipes before fork() — parent and child share them',
+        'After fork: parent closes write-end of stdout pipe immediately',
+        'After fork: child closes read-end of stdout pipe and write-end of stdin pipe'
+      ],
+      tests:[
+        'Create pipes, verify all 4 fds are > 0 and distinct',
+        'After nonblocking set: write large data, read with O_NONBLOCK — verify EAGAIN',
+        'Print CGIProcess after creation — all fields must be valid before fork'
+      ]
+    },
+    {
+      id:'p5-2', title:'fork() + execve() CGI execution', hours:'4–5h', tags:['critical'],
+      tasks:[
+        'Call fork() — check for -1',
+        'In child: dup2(stdinPipe[0], STDIN_FILENO) — redirect stdin',
+        'In child: dup2(stdoutPipe[1], STDOUT_FILENO) — redirect stdout',
+        'In child: close ALL original pipe fds and other inherited fds',
+        'In child: build envp char** from CGI environment map',
+        'In child: call execve(interpreter, argv, envp)',
+        'In child: if execve fails → _exit(1) (NOT exit())',
+        'In parent: close child-side pipe fds (stdinPipe[0] and stdoutPipe[1])',
+        'In parent: add stdoutPipe[1] read-end to pollfds with POLLIN',
+        'Store CGIProcess in connection, set state = CGI_RUNNING'
+      ],
+      warnings:[
+        'Not closing parent-end unused pipes in child = CGI never gets EOF on stdin, hangs forever',
+        'exit() in child instead of _exit() = child flushes parent\'s stdio buffers = data corruption',
+        'execve fails but no _exit() after = child continues running as duplicate server process — catastrophic',
+        'Not closing child-side pipes in parent = parent keeps pipe open, read-end never gets EOF'
+      ],
+      tricks:[
+        'Close all fds > 2 in child except the dup2\'d ones: for(int i=3;i<MAX_FD;i++) close(i)',
+        'Or use /proc/self/fd to enumerate and close only open fds',
+        '_exit() vs exit(): _exit() is async-signal-safe and skips atexit handlers and stdio flush'
+      ],
+      tests:[
+        'Exec /bin/echo hello — parent reads "hello\\n" from stdout pipe',
+        'Exec nonexistent binary — child exits with 1, parent detects EOF on stdout pipe, sends 500',
+        '/proc/{child_pid}/fd after fork — child must not inherit listening sockets or client fds'
+      ]
+    },
+    {
+      id:'p5-3', title:'CGI stdout nonblocking read in event loop', hours:'3–4h', tags:['critical','tricky'],
+      tasks:[
+        'When POLLIN fires on CGI stdout fd: read into cgiProcess.outputBuffer',
+        'Handle read() == 0: CGI stdout closed — CGI finished outputting',
+        'Handle read() == -1 + EAGAIN: normal, do nothing',
+        'When CGI stdout closed: call waitpid(pid, WNOHANG) to reap child',
+        'Route outputBuffer to correct client Connection via cgiFdToConnFd map',
+        'Build HTTP response from CGI output (split headers/body on blank line)',
+        'Set connection.sendBuffer = response, enable POLLOUT for client fd',
+        'Remove CGI stdout fd from pollfds, close it'
+      ],
+      warnings:[
+        'Blocking read from CGI pipe = server freezes for entire CGI duration — must be nonblocking',
+        'Not removing cgi_stdout_fd from pollfds after close = POLLNVAL errors forever',
+        'Confusing CGI fd events with client fd events in the same loop = routing CGI output to wrong client'
+      ],
+      tricks:[
+        'Accumulate all CGI output before building response — or stream if output is large',
+        'CGI output format: headers\\r\\n\\r\\nbody — split on first \\r\\n\\r\\n'
+      ],
+      tests:[
+        'CGI that sleeps 5s then prints — server handles other clients during those 5s',
+        '50 concurrent CGIs — all their stdout pipes polled simultaneously',
+        'CGI produces 10MB output — all received correctly, no truncation'
+      ]
+    },
+    {
+      id:'p5-4', title:'CGI timeout (SIGKILL infinite CGI)', hours:'2–3h', tags:['critical'],
+      tasks:[
+        'In checkTimeouts(): for each running CGI, check time(NULL) - startTime > CGI_TIMEOUT',
+        'On timeout: kill(pid, SIGKILL)',
+        'After kill: waitpid(pid, NULL, 0) to reap immediately',
+        'Close all pipe fds for this CGI',
+        'Send 504 Gateway Timeout to client',
+        'Remove CGI from tracking structures',
+        'Set cgiProcess.finished = true BEFORE sending response to avoid double-send'
+      ],
+      warnings:[
+        'SIGTERM first then no SIGKILL follow-up = zombie CGI survives if it ignores SIGTERM',
+        'Killing CGI but not closing pipe fds = poll() keeps watching dead fd, POLLERR loop',
+        'Race: CGI finishes exactly as timeout fires = double waitpid on same pid — check finished flag first'
+      ],
+      tricks:[
+        'Check cgiProcess.finished BEFORE timeout check — if already done, skip timeout logic entirely',
+        'After kill+waitpid, mark pid = -1 immediately so no second kill attempt'
+      ],
+      tests:[
+        'CGI with while(1){} — must be killed at CGI_TIMEOUT, client gets 504',
+        '100 infinite-loop CGIs submitted simultaneously — all killed, server stays responsive',
+        'CGI finishing at exactly timeout boundary — run 1000 times, zero crashes (race test)'
+      ]
+    },
+    {
+      id:'p5-5', title:'Zombie cleanup with waitpid(WNOHANG)', hours:'2h', tags:['critical'],
+      tasks:[
+        'Add periodic waitpid sweep in event loop: waitpid(-1, NULL, WNOHANG) after each poll()',
+        'Or: track all spawned pids, call waitpid(pid, WNOHANG) for each',
+        'When waitpid returns pid > 0: mark corresponding CGIProcess.finished = true',
+        'Handle SIGCHLD optionally: set a flag in handler, sweep waitpid in main loop',
+        'Test: run 1000 CGIs — ps aux | grep Z must show zero zombies at all times'
+      ],
+      warnings:[
+        'Not calling waitpid = Z processes accumulate — OS pid table fills up eventually',
+        'Blocking waitpid() (no WNOHANG) = server freezes waiting for CGI that isn\'t done',
+        'Not waiting after SIGKILL = zombie survives even killed processes'
+      ],
+      tricks:[
+        'waitpid(-1, NULL, WNOHANG) reaps ANY finished child — simpler than tracking individual pids',
+        'Loop it: while(waitpid(-1, NULL, WNOHANG) > 0) {} — reap all finished at once'
+      ],
+      tests:[
+        '1000 CGI requests — ps aux | grep Z empty throughout',
+        'Kill 50 CGIs with timeout — all reaped immediately, ps aux clean',
+        'Run for 1 hour under load — zero zombie accumulation'
+      ]
+    },
+    {
+      id:'p5-6', title:'CGI environment variables', hours:'2–3h', tags:[],
+      tasks:[
+        'Build env map: REQUEST_METHOD, SCRIPT_NAME, PATH_INFO, QUERY_STRING',
+        'Add CONTENT_LENGTH (body size for POST), CONTENT_TYPE',
+        'Add SERVER_PROTOCOL (HTTP/1.1), GATEWAY_INTERFACE (CGI/1.1)',
+        'Add HTTP_* headers (convert request headers to HTTP_ prefix, uppercase)',
+        'Add SERVER_NAME, SERVER_PORT',
+        'Convert map to char** envp with null terminator for execve',
+        'Free envp after execve call (in parent, only if fork failed)'
+      ],
+      warnings:[
+        'Passing invalid env = CGI behavior undefined, script may not function',
+        'Missing CONTENT_LENGTH for POST = CGI reads stdin forever waiting for body',
+        'Not null-terminating envp array = execve reads garbage, undefined behavior',
+        'HTTP_ header names: "Content-Type" → "HTTP_CONTENT_TYPE" — uppercase, replace - with _'
+      ],
+      tricks:[
+        'Build envp in a helper buildCGIEnv(request, config) → vector<string> — then convert to char**',
+        'Use strdup() for each entry, free them all after fork regardless of exec success'
+      ],
+      tests:[
+        'Python CGI: import os; print(os.environ) — verify all expected vars present',
+        'POST CGI: verify CONTENT_LENGTH == actual body size sent',
+        'CGI accessing HTTP_HOST — verify it maps correctly from Host: header'
+      ]
+    },
+    {
+      id:'p5-7', title:'Malformed CGI output handling', hours:'2h', tags:['tricky','test'],
+      tasks:[
+        'After collecting all CGI stdout: find first \\r\\n\\r\\n split point',
+        'If no \\r\\n\\r\\n found: CGI output is malformed — send 500 Internal Server Error',
+        'Parse CGI headers section for Status: line (CGI uses Status: not HTTP/1.1)',
+        'If Status: present: use its code as HTTP response status',
+        'If no Status:: assume 200 OK',
+        'Build proper HTTP response: "HTTP/1.1 {status}\\r\\n{headers}\\r\\n{body}"',
+        'Add Content-Length based on body size',
+        'Handle CGI outputting nothing (empty stdout) → 500'
+      ],
+      warnings:[
+        'Treating raw CGI stdout as complete HTTP = sending garbage headers to client, browser breaks',
+        'CGI outputs headers but no blank line = malformed, don\'t guess where body starts',
+        'CGI exits non-zero but still outputs valid headers = still return its status/body'
+      ],
+      tricks:[
+        'CGI Status: header is "Status: 404 Not Found" — extract the code number from it',
+        'A CGI that outputs only "Content-Type: text/html\\r\\n\\r\\n" with no body is valid — empty body response'
+      ],
+      tests:[
+        'CGI prints nothing — client gets 500',
+        'CGI prints only "Content-Type: text/plain\\r\\n\\r\\nhello" — client gets 200 with "hello"',
+        'CGI prints binary garbage — server stays up, client gets 500'
+      ]
+    }
+  ]
+},
+{
+  id:'p6', label:'P6 — STABLE', icon:'🛡️', color:'#34d399',
+  title:'PHASE 6 — STABILIZATION', subtitle:'Final weeks · Destroy every hidden runtime bug.',
+  duration:'Final weeks',
+  tickets:[
+    {
+      id:'p6-1', title:'Keep-alive edge cases + state reset audit', hours:'3–4h', tags:['tricky'],
+      tasks:[
+        'Audit resetForNextRequest() — list every field it must reset, verify each one',
+        'Test: 100 requests on same keep-alive connection — each must be independent',
+        'Test HTTP pipelining: 5 requests in one write() — all 5 responses in order',
+        'Test POST then GET on same connection — body state must not leak to GET',
+        'Test Connection: close after keep-alive sequence — connection closes correctly',
+        'Run with valgrind under keep-alive load — zero errors'
+      ],
+      warnings:[
+        'Any field not reset in resetForNextRequest() = potential state corruption on request N+1',
+        'Pipelined responses must arrive in request order — check ordering logic'
+      ],
+      tricks:[
+        'Add an assertCleanState() debug method that panics if any field is dirty before new request'],
+      tests:[
+        '100 requests same connection — verify each response is correct and independent',
+        'Pipeline 5 requests — verify 5 responses in correct order',
+        'POST then GET — verify GET response has no body from POST'
+      ]
+    },
+    {
+      id:'p6-2', title:'Handle POLLERR / POLLHUP / POLLNVAL', hours:'2–3h', tags:['critical'],
+      tasks:[
+        'In poll() iteration: check for POLLERR — log + cleanup connection',
+        'Check for POLLHUP: try to drain any remaining data first, then close',
+        'Check for POLLNVAL: fd was closed externally — remove from pollfds immediately',
+        'Check for POLLERR|POLLHUP combination — handle same as disconnect',
+        'Test: kill client without clean close (pull network) — POLLHUP fires, cleanup happens',
+        'Ensure POLLHUP on CGI stdout fd is also handled (CGI closed its end)'
+      ],
+      warnings:[
+        'Ignoring POLLHUP = keeping dead connection alive, wasting fd and memory',
+        'POLLNVAL after closing fd but not removing from pollfds = crash loop on every poll()',
+        'Not handling POLLHUP on CGI pipes = CGI output never fully read'
+      ],
+      tricks:[
+        'On POLLHUP: may still have data to read (POLLIN|POLLHUP can come together) — read first, then close'],
+      tests:[
+        'iptables DROP on client mid-connection — POLLHUP eventually fires, cleanup happens',
+        'Manually close a client fd before removing from pollfds — POLLNVAL handled gracefully',
+        'CGI exits — POLLHUP on cgi_stdout_fd — output fully collected then cleaned up'
+      ]
+    },
+    {
+      id:'p6-3', title:'FD leak audit — every close path verified', hours:'3–4h', tags:['critical'],
+      tasks:[
+        'Run valgrind --track-fds=yes ./webserv — start, handle requests, Ctrl+C — zero open fds',
+        'Review every error path: does it close all fds before returning?',
+        'Review CGI: stdinFd, stdoutFd — both closed in all paths (success, timeout, error)',
+        'Review accept() error path: does it close the accepted fd?',
+        'Add lsof -p monitoring script that alerts if fd count grows',
+        'Wrap all pipe fds in RAII: destructor closes if fd >= 0'
+      ],
+      warnings:[
+        'Error paths that return early without closing fds are the most common source of leaks',
+        'Exception (if using them) bypasses close() calls — use RAII',
+        'Not closing stdinFd when body is 0 bytes = CGI hangs waiting for stdin that never comes'
+      ],
+      tricks:[
+        'RAII FdGuard: { int fd=-1; ~FdGuard(){if(fd>=0)close(fd);} } — wraps any fd'],
+      tests:[
+        'valgrind --track-fds=yes: 0 open fds at exit',
+        'lsof | grep webserv | wc -l stays flat over 10,000 requests',
+        'Restart server 100 times — no "too many open files" error ever'
+      ]
+    },
+    {
+      id:'p6-4', title:'Zombie hunt — zero leaked child processes', hours:'2–3h', tags:['critical'],
+      tasks:[
+        'Track ALL spawned pids in a set — add on fork, remove on waitpid',
+        'At shutdown: kill and waitpid all remaining pids in the set',
+        'Add watchdog: every 10s, log count of tracked CGI processes',
+        'Periodic: while(waitpid(-1,NULL,WNOHANG)>0){} in main loop',
+        'Test: run 1000 CGI requests — ps aux | grep Z = empty throughout',
+        'Test: kill 50 CGIs via timeout — all reaped, ps clean'
+      ],
+      warnings:[
+        'waitpid only for known pids = orphaned processes if pid tracking has a bug',
+        'CGI pid reused by OS after reaping = killing wrong process if check is delayed'
+      ],
+      tricks:['waitpid(-1) with WNOHANG reaps any child — don\'t need to track individual pids for reaping'],
+      tests:[
+        'ps aux | grep Z after 1000 CGI requests — zero results',
+        '24-hour stress test: ps aux shows no Z processes at any point',
+        'Shutdown during active CGIs — all children killed and reaped before process exits'
+      ]
+    },
+    {
+      id:'p6-5', title:'Massive concurrency stress test (1000 connections)', hours:'3–4h', tags:['test'],
+      tasks:[
+        'Raise ulimit -n 10000 before running',
+        'Run siege -c 1000 -d 1 -r 500 http://localhost:8080/',
+        'Run wrk -t 12 -c 1000 -d 60s http://localhost:8080/',
+        'Monitor memory with htop — must not grow indefinitely',
+        'Monitor fd count with lsof during test',
+        'Run with 500 keep-alive connections held open simultaneously',
+        'Verify server responsive to new connections during 1000-connection load'
+      ],
+      warnings:[
+        'poll() performance degrades linearly with fd count — 1000 fds is measurable',
+        'ulimit -n default (1024) will block the test — always raise it first',
+        'Memory per-connection × 1000 — check that recvBuffer defaults don\'t waste RAM'
+      ],
+      tricks:['wrk is faster and more realistic than ab — use wrk for final benchmarks'],
+      tests:[
+        'siege: availability 100%, zero failed transactions',
+        'wrk: zero errors, stable RPS throughout 60s run',
+        'Memory does not grow more than 50MB above baseline during 1000-connection test'
+      ]
+    },
+    {
+      id:'p6-6', title:'SIGINT clean shutdown', hours:'2–3h', tags:['critical'],
+      tasks:[
+        'Install signal handler: signal(SIGINT, handleSignal)',
+        'Signal handler body: g_running = false ONLY — no complex logic (async-signal-safety)',
+        'Main loop: after each poll() iteration, check if(!g_running) → break',
+        'Cleanup sequence: kill all active CGI pids, waitpid them',
+        'Cleanup: close all client connection fds',
+        'Cleanup: close all listenFds',
+        'Cleanup: remove all fds from pollfds',
+        'Log: "Shutting down cleanly"',
+        'Verify: after Ctrl+C, lsof shows no open fds, ss shows no bound ports'
+      ],
+      warnings:[
+        'Complex logic in signal handler = async-signal-safety violation, undefined behavior',
+        'Not killing CGI children on exit = orphaned processes continue running',
+        'Leaving listen sockets open = port stays in TIME_WAIT for 60s, immediate restart fails'
+      ],
+      tricks:[
+        'Use volatile sig_atomic_t g_running = 1 — correct type for signal handler flag',
+        'Also handle SIGTERM with same handler for clean container/daemon behavior'
+      ],
+      tests:[
+        'Ctrl+C during active request — server exits cleanly, client gets RST',
+        'Ctrl+C during active CGI — CGI child killed, no zombies',
+        'After Ctrl+C: ss -tlnp shows no ports, lsof shows no fds from webserv'
+      ]
+    },
+    {
+      id:'p6-7', title:'Malformed request + fuzz survival', hours:'2–3h', tags:['test','critical'],
+      tasks:[
+        'Send 10KB of random binary to server — verify 400 returned, server stays up',
+        'Send HTTP request with 100KB URI — verify 414 Request-URI Too Long',
+        'Send 10,000 headers each 1 byte — verify 400 or 431 returned',
+        'Send valid request immediately after malformed on new connection — must work',
+        'Send Content-Length: 99999999 with 0 bytes body — must handle',
+        'Run afl-fuzz or honggfuzz on the parser for 1 hour if time permits'
+      ],
+      warnings:[
+        'Parser crash on malformed input crashes whole server — must not happen',
+        'Sending 400 but keeping connection open = state machine confusion',
+        'Infinite malformed request flood = DoS — rate limiting or max-connections needed'
+      ],
+      tricks:['All 400 paths must close the connection — never leave a confused connection in READING state'],
+      tests:[
+        'Random binary 10KB → 400, server up and responsive immediately after',
+        '100KB URI → 414, server up',
+        '100 simultaneous malformed connections — server handles all and stays responsive'
+      ]
+    },
+    {
+      id:'p6-8', title:'Final real-world browser validation', hours:'2–3h', tags:['test'],
+      tasks:[
+        'Serve a real multi-file website (index.html + CSS + JS + images)',
+        'Test with Chrome DevTools Network tab — check for any failed resources',
+        'Test with Firefox DevTools',
+        'Test curl --http1.0 and curl --http1.1 — both must work',
+        'Test chunked transfer encoding if implemented',
+        'Run siege -c 200 -d 1 -r 500 — availability must be 100%',
+        'Final: ab -n 10000 -c 200 — 0 failed requests'
+      ],
+      warnings:[
+        'Works under ab but fails under real browser traffic due to different header ordering/timing',
+        'Browsers open multiple parallel connections — tests parallelism in a realistic way'
+      ],
+      tricks:['Copy a real website (e.g. run wget -r on a simple site) and serve it — finds edge cases immediately'],
+      tests:[
+        'Chrome: page loads fully, 0 errors in Network tab',
+        'Firefox: page loads fully, 0 errors',
+        'siege: 100% availability, 0 failed transactions'
+      ]
+    }
+  ]
+}
+];
+
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
+let S = { statuses:{}, todos:{}, testsDone:{}, times:{}, currentPhase:'p0', filter:'all' };
+
+function loadState(){
+  try{ const d=localStorage.getItem('ivan_v2'); if(d) S={...S,...JSON.parse(d)}; }catch(e){}
+}
+function saveState(){
+  try{ localStorage.setItem('ivan_v2',JSON.stringify(S)); }catch(e){}
+  showToast('💾 Saved');
+}
+
+function getStatus(id){ return S.statuses[id]||'todo'; }
+function setStatus(id,v){ S.statuses[id]=v; saveState(); }
+function getTodoDone(taskId,idx){ return !!(S.todos[taskId]||{})[idx]; }
+function toggleTodo(taskId,idx){ if(!S.todos[taskId])S.todos[taskId]={}; S.todos[taskId][idx]=!S.todos[taskId][idx]; saveState(); }
+function getTestDone(taskId,idx){ return !!(S.testsDone[taskId]||{})[idx]; }
+function toggleTest(taskId,idx){ if(!S.testsDone[taskId])S.testsDone[taskId]={}; S.testsDone[taskId][idx]=!S.testsDone[taskId][idx]; saveState(); }
+function getTime(id){ return S.times[id]||''; }
+function setTime(id,v){ S.times[id]=v; saveState(); }
+
+function todosCompleted(taskId, total){
+  if(!S.todos[taskId]) return 0;
+  return Object.values(S.todos[taskId]).filter(Boolean).length;
+}
+
+// ══════════════════════════════════════════════════════
+// BUILD UI
+// ══════════════════════════════════════════════════════
+function buildPhaseNav(){
+  const nav=document.getElementById('phaseNav');
+  PHASES.forEach(p=>{
+    const btn=document.createElement('button');
+    btn.className='phase-btn'+(p.id===S.currentPhase?' active':'');
+    if(p.id===S.currentPhase){btn.style.background=p.color;btn.style.color='#000';}
+    btn.textContent=p.label;
+    btn.onclick=()=>switchPhase(p.id);
+    nav.appendChild(btn);
+  });
+}
+
+function switchPhase(id){
+  S.currentPhase=id;
+  document.querySelectorAll('.phase-btn').forEach((b,i)=>{
+    const p=PHASES[i];
+    b.className='phase-btn'+(p.id===id?' active':'');
+    b.style.background=p.id===id?p.color:'';
+    b.style.color=p.id===id?'#000':'';
+  });
+  document.querySelectorAll('.phase-section').forEach(s=>{
+    s.classList.toggle('active',s.dataset.phase===id);
+  });
+}
+
+function buildAll(){
+  const container=document.getElementById('phaseSections');
+  // Inject accent styles
+  const styleEl=document.createElement('style');
+  PHASES.forEach(p=>{
+    (p.tickets||[]).forEach(t=>{
+      styleEl.textContent+=`#card_${t.id}::before{background:${p.color};}\n`;
+    });
+  });
+  document.head.appendChild(styleEl);
+
+  PHASES.forEach(phase=>{
+    const section=document.createElement('div');
+    section.className='phase-section'+(phase.id===S.currentPhase?' active':'');
+    section.dataset.phase=phase.id;
+    section.innerHTML=`
+      <div class="phase-header" style="border-left:4px solid ${phase.color}">
+        <div class="phase-header-icon">${phase.icon}</div>
+        <div class="phase-header-info">
+          <h2 style="color:${phase.color}">${phase.title}</h2>
+          <p>${phase.subtitle}</p>
+        </div>
+        <div class="phase-meta">
+          <div class="duration">⏱ ${phase.duration}</div>
+          <div class="phase-progress-bar"><div class="phase-progress-fill" id="pbar_${phase.id}" style="background:${phase.color}"></div></div>
+          <div class="phase-pct" id="ppct_${phase.id}">0%</div>
+        </div>
+      </div>
+      <div class="kanban">
+        <div class="kanban-col" id="col_todo_${phase.id}">
+          <div class="col-header"><div class="col-dot todo"></div><span class="col-title" style="color:var(--text-muted)">TO DO</span><span class="col-count" id="cnt_todo_${phase.id}">0</span></div>
+        </div>
+        <div class="kanban-col" style="background:rgba(13,32,32,.6)" id="col_doing_${phase.id}">
+          <div class="col-header"><div class="col-dot doing"></div><span class="col-title" style="color:var(--yellow)">DOING</span><span class="col-count" id="cnt_doing_${phase.id}">0</span></div>
+        </div>
+        <div class="kanban-col" style="background:rgba(13,32,15,.6)" id="col_done_${phase.id}">
+          <div class="col-header"><div class="col-dot done"></div><span class="col-title" style="color:var(--green)">DONE</span><span class="col-count" id="cnt_done_${phase.id}">0</span></div>
+        </div>
+      </div>`;
+    container.appendChild(section);
+    (phase.tickets||[]).forEach(ticket=>buildCard(ticket,phase,section));
+  });
+}
+
+function buildCard(ticket, phase, section){
+  const status=getStatus(ticket.id);
+  const card=document.createElement('div');
+  card.className=`task-card status-${status}`;
+  card.id=`card_${ticket.id}`;
+  card.dataset.status=status;
+  card.dataset.phase=phase.id;
+
+  const tags=(ticket.tags||[]).map(t=>`<span class="tag tag-${t}">${t.toUpperCase()}</span>`).join('');
+  const todoTotal=ticket.tasks.length;
+  const todoDone=todosCompleted(ticket.id, todoTotal);
+  const savedTime=getTime(ticket.id);
+  const pct=todoTotal>0?Math.round(todoDone/todoTotal*100):0;
+
+  card.innerHTML=`
+    <div class="task-top">
+      <div class="task-checkbox" id="chk_${ticket.id}"></div>
+      <div class="task-title">${ticket.title}</div>
+    </div>
+    <div class="task-meta">
+      <span class="task-time">⏱ ${ticket.hours}</span>
+      ${tags}
+      <span class="card-subprogress" id="subprog_${ticket.id}">${todoDone}/${todoTotal}</span>
+    </div>
+    <div class="card-subbar"><div class="card-subbar-fill" id="subbar_${ticket.id}" style="background:${phase.color};width:${pct}%"></div></div>
+
+    <div class="task-expand" id="expand_${ticket.id}">
+      <div class="detail-tabs">
+        <button class="detail-tab active" data-tab="tasks" onclick="switchTab('${ticket.id}','tasks',event)">📋 TASKS</button>
+        <button class="detail-tab" data-tab="warnings" onclick="switchTab('${ticket.id}','warnings',event)">⚠ RISKS</button>
+        <button class="detail-tab" data-tab="tricks" onclick="switchTab('${ticket.id}','tricks',event)">⚡ TRICKS</button>
+        <button class="detail-tab" data-tab="tests" onclick="switchTab('${ticket.id}','tests',event)">✓ TESTS</button>
+      </div>
+
+      <div class="tab-panel active" id="tab_tasks_${ticket.id}">
+        <ul class="todo-list">${ticket.tasks.map((task,i)=>`
+          <li class="todo-item${getTodoDone(ticket.id,i)?' checked':''}" id="todo_${ticket.id}_${i}" onclick="clickTodo('${ticket.id}',${i},event)">
+            <div class="todo-cb"></div>
+            <span class="todo-text">${task}</span>
+          </li>`).join('')}
+        </ul>
+      </div>
+
+      <div class="tab-panel" id="tab_warnings_${ticket.id}">
+        <ul class="detail-list warn-list">${(ticket.warnings||[]).map(w=>`<li>${w}</li>`).join('')}</ul>
+      </div>
+
+      <div class="tab-panel" id="tab_tricks_${ticket.id}">
+        <ul class="detail-list trick-list">${(ticket.tricks||[]).map(t=>`<li>${t}</li>`).join('')}</ul>
+      </div>
+
+      <div class="tab-panel" id="tab_tests_${ticket.id}">
+        <ul class="detail-list test-list">${(ticket.tests||[]).map((t,i)=>`
+          <li class="${getTestDone(ticket.id,i)?'test-done':''}" id="test_${ticket.id}_${i}" onclick="clickTest('${ticket.id}',${i},event)">${t}</li>`).join('')}
+        </ul>
+      </div>
+
+      <div class="task-controls">
+        <button class="status-btn todo-btn${status==='todo'?' active-todo':''}" onclick="setCardStatus('${ticket.id}','${phase.id}','todo',event)">TODO</button>
+        <button class="status-btn doing-btn${status==='doing'?' active-doing':''}" onclick="setCardStatus('${ticket.id}','${phase.id}','doing',event)">DOING</button>
+        <button class="status-btn done-btn${status==='done'?' active-done':''}" onclick="setCardStatus('${ticket.id}','${phase.id}','done',event)">DONE</button>
+        <div class="timing-row" style="margin-top:0">
+          <input class="timing-input" type="number" min="0" max="999" placeholder="0"
+            value="${savedTime}" onchange="saveTimeSpent('${ticket.id}',this.value)" onclick="event.stopPropagation()" title="Hours spent">
+          <span class="timing-label">hrs</span>
+        </div>
+      </div>
+    </div>`;
+
+  // Checkbox click
+  card.querySelector('.task-checkbox').onclick=(e)=>{
+    e.stopPropagation();
+    const cur=getStatus(ticket.id);
+    const nxt=cur==='todo'?'doing':cur==='doing'?'done':'todo';
+    setCardStatus(ticket.id,phase.id,nxt,e);
+  };
+
+  // Card click to expand
+  card.onclick=(e)=>{
+    if(e.target.closest('.task-checkbox')||e.target.closest('.status-btn')||e.target.tagName==='INPUT'||e.target.closest('.detail-tab')||e.target.closest('.todo-item')||e.target.tagName==='LI') return;
+    card.classList.toggle('expanded');
+  };
+
+  // Place in correct column
+  const col=section.querySelector(`#col_${status}_${phase.id}`);
+  if(col) col.appendChild(card);
+}
+
+function switchTab(ticketId, tab, e){
+  e.stopPropagation();
+  const expand=document.getElementById(`expand_${ticketId}`);
+  expand.querySelectorAll('.detail-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  expand.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id===`tab_${tab}_${ticketId}`));
+}
+
+function clickTodo(ticketId, idx, e){
+  e.stopPropagation();
+  toggleTodo(ticketId,idx);
+  const item=document.getElementById(`todo_${ticketId}_${idx}`);
+  if(item) item.classList.toggle('checked');
+  updateSubProgress(ticketId);
+  updateCounts(document.getElementById(`card_${ticketId}`).dataset.phase);
+  updateStats();
+}
+
+function clickTest(ticketId, idx, e){
+  e.stopPropagation();
+  toggleTest(ticketId,idx);
+  const item=document.getElementById(`test_${ticketId}_${idx}`);
+  if(item) item.classList.toggle('test-done');
+  saveState();
+}
+
+function updateSubProgress(ticketId){
+  const phase=PHASES.find(p=>(p.tickets||[]).some(t=>t.id===ticketId));
+  if(!phase) return;
+  const ticket=phase.tickets.find(t=>t.id===ticketId);
+  if(!ticket) return;
+  const total=ticket.tasks.length;
+  const done=todosCompleted(ticketId,total);
+  const pct=total>0?Math.round(done/total*100):0;
+  const sp=document.getElementById(`subprog_${ticketId}`);
+  const sb=document.getElementById(`subbar_${ticketId}`);
+  if(sp) sp.textContent=`${done}/${total}`;
+  if(sb) sb.style.width=`${pct}%`;
+}
+
+function setCardStatus(ticketId, phaseId, status, e){
+  if(e) e.stopPropagation();
+  setStatus(ticketId,status);
+  const card=document.getElementById(`card_${ticketId}`);
+  if(!card) return;
+  // Update class
+  card.className=card.className.replace(/status-\w+/,`status-${status}`);
+  card.dataset.status=status;
+  // Update checkbox appearance
+  const chk=card.querySelector('.task-checkbox');
+  if(chk){ chk.style.cssText=''; }
+  // Update buttons
+  card.querySelectorAll('.status-btn').forEach(b=>{
+    b.classList.remove('active-todo','active-doing','active-done');
+    if(b.classList.contains('todo-btn')&&status==='todo') b.classList.add('active-todo');
+    if(b.classList.contains('doing-btn')&&status==='doing') b.classList.add('active-doing');
+    if(b.classList.contains('done-btn')&&status==='done') b.classList.add('active-done');
+  });
+  // Move to correct column
+  const section=document.querySelector(`.phase-section[data-phase="${phaseId}"]`);
+  const col=section&&section.querySelector(`#col_${status}_${phaseId}`);
+  if(col){ card.classList.remove('expanded'); col.appendChild(card); }
+  updateCounts(phaseId);
+  updateStats();
+  applyFilter(S.filter);
+}
+
+function saveTimeSpent(id,v){ setTime(id,v); }
+
+function updateCounts(phaseId){
+  const phase=PHASES.find(p=>p.id===phaseId);
+  if(!phase) return;
+  ['todo','doing','done'].forEach(s=>{
+    const col=document.getElementById(`col_${s}_${phaseId}`);
+    const cnt=document.getElementById(`cnt_${s}_${phaseId}`);
+    if(col&&cnt) cnt.textContent=col.querySelectorAll('.task-card').length;
+  });
+  const total=(phase.tickets||[]).length;
+  const done=(phase.tickets||[]).filter(t=>getStatus(t.id)==='done').length;
+  const pct=total>0?Math.round(done/total*100):0;
+  const bar=document.getElementById(`pbar_${phaseId}`);
+  const pct_el=document.getElementById(`ppct_${phaseId}`);
+  if(bar) bar.style.width=`${pct}%`;
+  if(pct_el) pct_el.textContent=`${pct}%`;
+}
+
+function updateStats(){
+  let total=0,todo=0,doing=0,done=0;
+  PHASES.forEach(p=>(p.tickets||[]).forEach(t=>{
+    total++;
+    const s=getStatus(t.id);
+    if(s==='todo')todo++;else if(s==='doing')doing++;else done++;
+  }));
+  document.getElementById('statTotal').textContent=total;
+  document.getElementById('statTodo').textContent=todo;
+  document.getElementById('statDoing').textContent=doing;
+  document.getElementById('statDone').textContent=done;
+  document.getElementById('globalProgress').textContent=`${done}/${total} done`;
+}
+
+function applyFilter(filter){
+  S.filter=filter;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.filter===filter));
+  document.querySelectorAll('.task-card').forEach(card=>{
+    const show=filter==='all'||card.dataset.status===filter;
+    card.classList.toggle('hidden',!show);
+  });
+}
+
+let toastT;
+function showToast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),1600);
+}
+
+// ── FILTER BUTTONS ──
+document.querySelectorAll('.filter-btn').forEach(b=>{
+  b.onclick=()=>applyFilter(b.dataset.filter);
+});
+
+// ── INIT ──
+loadState();
+buildPhaseNav();
+buildAll();
+PHASES.forEach(p=>updateCounts(p.id));
+updateStats();
+applyFilter(S.filter);
+</script>
+</body>
+</html>
