@@ -1700,35 +1700,58 @@ function showToast(msg){
 }
 
 // ══════════════════════════════════════════════════════
-// EXPORT / IMPORT LOGIC
+// EXPORT / IMPORT LOGIC (FILE DOWNLOAD METHOD)
 // ══════════════════════════════════════════════════════
 function exportData() {
-  const saveData = JSON.stringify(S);
+  // 1. Gather the data
+  const saveData = JSON.stringify(S, null, 2);
   
-// Try to copy directly to the clipboard
-  navigator.clipboard.writeText(saveData).then(() => {
-    showToast('📋 Save code copied to clipboard!');
-  }).catch(err => {
-    // Fallback if browser blocks clipboard access
-    prompt("Copy your save code below:", saveData);
-  });
+  // 2. Create an invisible file out of it
+  const blob = new Blob([saveData], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  
+  // 3. Create an invisible link, click it to download, then destroy it
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = "ivan_tracker_save.json"; // This is the file name
+  document.body.appendChild(a);
+  a.click();
+  
+  // 4. Clean up
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('💾 Save file downloaded!');
 }
 
 function importData() {
-  const pastedData = prompt("📥 Paste your save code here:");
+  // 1. Create an invisible file upload button
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json'; // Only allow JSON files
   
-  if (!pastedData) return; // User canceled
+  // 2. What to do when a file is selected
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = event => {
+      try {
+        const parsed = JSON.parse(event.target.result);
+        if (parsed && typeof parsed === 'object') {
+          S = { ...S, ...parsed }; // Merge the new data
+          saveState();             // Save to browser
+          location.reload();       // Refresh to show changes
+        }
+      } catch (err) {
+        alert("❌ Invalid save file! Make sure you selected the right JSON file.");
+      }
+    };
+    reader.readAsText(file); // Read the file
+  };
   
-  try {
-    const parsed = JSON.parse(pastedData);
-    if (parsed && typeof parsed === 'object') {
-      S = { ...S, ...parsed }; // Merge the imported data
-      saveState();             // Save it to local storage
-      location.reload();       // Refresh the page to show new checkmarks
-    }
-  } catch (e) {
-    alert("❌ Invalid save code! Make sure you copied the whole text.");
-  }
+  // 3. Trigger the file upload window
+  input.click();
 }
 
 // ── FILTER BUTTONS ──
