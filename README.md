@@ -1,5 +1,6 @@
 # WEB-Serv-42
 building a small web server: communication machine
+https://muta-pro.github.io/WEB-Serv-42/
 
 **Our architecture of responsabilites:**
 - receiving requests
