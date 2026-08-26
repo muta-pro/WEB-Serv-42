@@ -43,28 +43,50 @@ attach response body, serving static files(HTML, CSS, image, txt), generate *err
 
 ## goal : we want to separate the project into three clear responsibilities, following the actual life cycle of a request
 
-## **work plan**
+Contract objects Every layer of your server communicates only through these shared objects. Never call across layer boundaries directly.
 
-**MAY-JULY**:
-1. make server boot and accept connections
-2. request understanding
-3. return correct answers
+hpps: RouteResult, ConnectionState
 
-**JULY-AUGUST**:
+Liza: http - request (parsing incoming bytes & decide routing) Ravi: http - response (formatting final output) cgi - parse CGI script's output cofig - ConfigParser , ServerConfig (reads .conf at start to config server) Ivan: cgi - CgiHandler exec. network - runtime engine (socket/client/serverManager)
 
-4. integration: conncet three parts
-	- plug request parsing into engine
-	- plug route decision into repsonse builder
-	- plug final response into writing stage
-	- test end-to-end flow
+Startup : first the server's rulebook, then listen The config file.
 
-**SEPTEMBER**:
+which port to listen on
+where files are stored
+what routes exist
+which methods are allowed
+where error pages are
+when CGI should be used
+Runntime loop
 
-5. finalize
-	- keep-alive feature
-	- CGI
-	- edge cases
-	- cleanup
-	- error handling
-	- testing
-	- final refactor
+wait for activity
+accept a client
+receive a data - HTTP request
+understand the request
+decide what it means
+prepare the answer
+send it back
+keep or close the connection
+work plan
+august:
+
+make server boot and accept connections
+request understanding
+return correct answers
+september:
+
+integration: conncet three parts
+plug request parsing into engine
+plug route decision into repsonse builder
+plug final response into writing stage
+test end-to-end flow
+october:
+
+finalize
+keep-alive feature
+CGI
+edge cases
+cleanup
+error handling
+testing
+final refactor
