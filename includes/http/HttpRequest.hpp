@@ -6,7 +6,7 @@
 #include <cctype> // added a header
 
 struct CaseInsensitiveLess { // a struct for normalizing strings in the map
-	bool operator()(const std::string& a, const std::string& b) const {
+	bool operator()(std::string_view a, std::string_view b) const {
 		size_t n = a.size() < b.size() ? a.size() : b.size();
 		for (size_t i = 0; i < n; ++i) {
 			unsigned char x = tolower(static_cast<unsigned char>(a[i]));
