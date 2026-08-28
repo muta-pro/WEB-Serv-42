@@ -1,4 +1,5 @@
-#pragma once
+#ifndef HTTPREQUEST_HPP
+#define HTTPREQUEST_HPP
 
 #include "HttpRequest.hpp"
 #include <string_view>
@@ -15,3 +16,5 @@ struct ParseResult { // to be figured out later - Liza
 	int			errorCode;
 	std::string	errorMsg;
 };
+
+#endif

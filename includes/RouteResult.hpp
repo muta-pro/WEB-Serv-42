@@ -13,11 +13,16 @@ Ravi reads targetPath to knwo what to sand back to the user
 struct RouteResult {
 	const ServerConfig		*server; //Lisa
 	const LocationConfig	*loc;		//Lisa
-	bool					useCGI; //ivan
-	std::string				targetPath; //ravi
-	std::string				redirectURL;
-	bool					isUpload;
-	bool					isDelete;
+};
+
+enum class RouteAction {
+	staticFile,
+	directory,
+	redirect,
+	upload,
+	deleteResource,
+	CGI,
+	Error
 };
 
 #endif

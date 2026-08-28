@@ -9,10 +9,13 @@ lastActivity useful to check for timeout, to disconnect the client
 #define CONNECTION_HPP
 
 #include <string>
-#include <stream>
-#include <ctyme>
+#include <ctime>
+#include <unistd.h>
+#include "HttpRequest.hpp"
+#include "HttpResponse.http"
 
-struct ConnectionState;
+
+enum ConnectionState;
 
 class Connection {
 	public:
@@ -35,6 +38,9 @@ class Connection {
 		time_t			lastActivity; //update time on every clients send/recv
 		HttpRequest		req; //fills from readBuff;
 		HttpResponse	resp; //serialized raw txt fills writeBuff
+		std::size_t		byteSent;
+		std::size_t		parseOffset;
+		bool			keepAlive;
 };
 
 #endif
