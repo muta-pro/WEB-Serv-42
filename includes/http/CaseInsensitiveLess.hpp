@@ -5,7 +5,7 @@
 # include <string_view>
 
 struct CaseInsensitiveLess { // a struct for normalizing strings in the map
-	bool operator()(std::string_view a, std::string_view b) const
+	bool operator()(std::string_view a, std::string_view b) const // it's ok to keep string_view here for parameter types - Liza
 	{
 		size_t n = a.size() < b.size() ? a.size() : b.size();
 		for (size_t i = 0; i < n; ++i) {
