@@ -1,8 +1,6 @@
-#ifndef HTTPREQUEST_HPP
-#define HTTPREQUEST_HPP
+#pragma once
 
 #include "HttpRequest.hpp"
-#include <string_view>
 
 enum class ParseStatus {
 	INCOMPLETE, 
@@ -10,11 +8,17 @@ enum class ParseStatus {
 	ERROR
 };
 
+
 struct ParseResult { // to be figured out later - Liza
-	ParseStatus	status;
-	size_t		bytesConsumed;
-	int			errorCode;
-	std::string	errorMsg;
+	ParseStatus	status = ParseStatus::INCOMPLETE;
+	size_t		bytesConsumed = 0;
+	int			httpStatus = 0; // same as errorCode before, possible codes: 400, 413, 414, 431, or 505
+	std::string	diagnostic; // same as errorMessage before
 };
 
-#endif
+class HttpRequestParser {
+	public:
+		ParseResult feed(std::string_view bytes);
+		HttpRequest takeRequest();
+		void 		reset();
+};

@@ -2,7 +2,6 @@
 
 #include <string>
 #include <map>
-#include <string_view>
 #include <cctype> // added a header
 #include "CaseInsensitiveLess.hpp"
 
@@ -14,8 +13,8 @@ struct HttpRequest {
 	std::string							body;
 
 	std::string							header(const std::string k) const;
-	size_t										contentLength() const;
-	bool										isKeepAlive() const;
+	size_t								contentLength() const;
+	bool								isKeepAlive() const;
 };
 
 /* 
