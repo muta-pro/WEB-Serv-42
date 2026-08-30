@@ -21,4 +21,17 @@ class HttpRequestParser {
 		ParseResult feed(std::string_view bytes);
 		HttpRequest takeRequest();
 		void 		reset();
+
+	private:
+		HttpRequest	_request; //this added by Ivan(read below)
 };
+
+
+/*ownership of httprequest
+this way is decided that Parser owns the 
+partially built request and transferes when complete
+behaviour:
+_request -belongs to parser while parsing
+takeRequest() -moves it to the caller after COMPLETE
+reset() -prepares parser for next request
+*/

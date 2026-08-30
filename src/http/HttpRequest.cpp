@@ -2,14 +2,14 @@
 
 // to be implemented
 
-std::string	HttpRequest::header(const std::string k) const{
+// std::string	HttpRequest::header(const std::string k) const{
 
-}
+// }
 
-size_t		HttpRequest::contentLength() const{
+// size_t		HttpRequest::contentLength() const{
 
-}
+// }
 
-bool		HttpRequest::isKeepAlive() const{
+// bool		HttpRequest::isKeepAlive() const{
 
-}
+// }

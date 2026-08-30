@@ -2,14 +2,14 @@
 
 // HttpRequestParser methods' definitions (to be implemented):
 
-ParseResult HttpRequestParser::feed(std::string_view bytes){
+// ParseResult HttpRequestParser::feed(std::string_view bytes){
 
-}
+// }
 
-HttpRequest HttpRequestParser::takeRequest(){
+// HttpRequest HttpRequestParser::takeRequest(){
 
-}
+// }
 
-void 		HttpRequestParser::reset(){
+// void 		HttpRequestParser::reset(){
 
-}
+// }
