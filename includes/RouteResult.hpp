@@ -26,3 +26,12 @@ enum class RouteAction {
 };
 
 #endif
+
+/*
+CHECK THIS;
+RouteResult should then contain one action, an HTTP status, 
+the selected immutable configuration, and only the action-specific paths/data.
+If it stores configuration pointers, establish 
+that all configurations are fully constructed 
+before the event loop starts and never moved or mutated afterward.
+*/
