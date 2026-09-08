@@ -1,9 +1,11 @@
 #ifndef HTTPREQUEST_HPP
 #define HTTPREQUEST_HPP
+
 #include <string>
 #include <map>
 #include <cctype> // added a header
 #include "CaseInsensitiveLess.hpp"
+#include "HeaderMap.hpp"
 
 struct HttpRequest {
 	std::string							method;  // GET POST DELETE
@@ -11,13 +13,13 @@ struct HttpRequest {
 	std::string							path;    // /index.html URL path without ? or query
 	std::string							query; //everything after ?, without the ?
 	std::string							version; // HTTP/1.1
-	std::map<std::string,std::string, CaseInsensitiveLess>	headers; 
+	HeaderMap								headers;
 	std::string							body;
 
-	std::string_view					header(const std::string_view k) const;
-	std::optional<std::size_t>			contentLength() const;
-	bool								isKeepAlive() const;
-	bool								hasHeader(std::string_view name) const;
+	std::string_view						header(const std::string_view k) const;
+	std::optional<std::size_t>	contentLength() const;
+	bool												isKeepAlive() const;
+	bool												hasHeader(std::string_view name) const;
 			//the caller can call hasHeader() before retrieving the value;
 };
 //one shared alias
@@ -91,13 +93,14 @@ This behavior should be documented in the helper so the network branch does
 not implement a second, different version.
 
 
-second thing to decide
+second thing to decide - detect duplicates inside parser inmplementation;
 using map can insert duplicate headers blindly overwriting values:
 	policy for the parser detecting duplicates before insertion is missing;
 	-reject conflicting Content-Length values;
 	-reject unsupported combinations such as Content-Length with Transfer-Encoding;
 	-deliberately combine headers where combining is allowed;
 	-never silently overwrite an existing value.
+
 
 
 */

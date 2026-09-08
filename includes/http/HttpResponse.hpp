@@ -4,12 +4,14 @@
 # include <string>
 # include <map>
 # include "CaseInsensitiveLess.hpp"
+#include "HeaderMap.hpp"
 
 struct HttpResponse {
-	int statusCode = 200;
-	std::string statusText;
-	std::map<std::string, std::string, CaseInsensitiveLess> headers;
-	std::string body;
+	int					statusCode = 200;
+	std::string	statusText;
+	HeaderMap		headers;
+	std::string	body;
+
 	static HttpResponse make(int code, std::string body = "");
 	static HttpResponse makeError(int code);
 	static std::string reasonFor(int code);
