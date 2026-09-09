@@ -2,9 +2,9 @@
 #define HTTPREQUEST_HPP
 
 #include <string>
-#include <map>
-#include <cctype> // added a header
-#include "CaseInsensitiveLess.hpp"
+#include <string_view>
+#include <optional>
+#include <cstddef>
 #include "HeaderMap.hpp"
 
 struct HttpRequest {
@@ -22,12 +22,7 @@ struct HttpRequest {
 	bool												hasHeader(std::string_view name) const;
 			//the caller can call hasHeader() before retrieving the value;
 };
-//one shared alias
-typedef std::map<
-	std::string,
-	std::string,
-	CaseInsensitiveLess
->HeaderMap;
+
 
 #endif
 /* 

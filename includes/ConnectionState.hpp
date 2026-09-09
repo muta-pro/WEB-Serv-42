@@ -2,12 +2,12 @@
 #define CONNECT_STATE
 
 enum ConnectionState {
-    readingHeaders,
-    readingBody,
-    processing,
-    cgiRunning,
-    writingResponse,
-    closed
+    ReadingHeaders,
+    ReadingBody,
+    Processing,
+    CgiRunning,
+    WritingResponse,
+    Closed
 };
 
 #endif

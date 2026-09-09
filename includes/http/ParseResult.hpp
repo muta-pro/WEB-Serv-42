@@ -13,7 +13,7 @@ enum class ParseStatus {
 
 struct ParseResult { // to be figured out later - Liza
 	ParseStatus	status = ParseStatus::INCOMPLETE;
-	size_t			bytesConsumed = 0; //n of bytes from the curr feed() arg; *read-below
+	std::size_t			bytesConsumed = 0; //n of bytes from the curr feed() arg; *read-below
 	int					httpStatus = 0; // same as errorCode before, possible codes: 400, 413, 414, 431, or 505
 	std::string	diagnostic; // same as errorMessage before - for internal logs; not sent automatically to caller;
 };

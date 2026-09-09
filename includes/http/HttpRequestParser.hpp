@@ -21,6 +21,7 @@ class HttpRequestParser {
 _request - gives parser complete control over it's partial state;
           obj request belongs to parser while parsing -
           takeRequest() moves it to caller after COMPLETE
-          RESET() PREPERS for the next request;
+          and prepares parser for next req
+          RESET() discards incoomplete or faild request
 
 */

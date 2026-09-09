@@ -9,18 +9,26 @@ Ravi reads targetPath to knwo what to sand back to the user
 
 #include <string>
 
+struct ServerConfig;
+struct LocationConfig;
 
 struct RouteResult {
-	const ServerConfig		*server; //Lisa
-	const LocationConfig	*loc;		//Lisa
+	const ServerConfig		*server = nullptr;
+	const LocationConfig	*loc = nullptr;
+
+	RouteAction	action = RouteAction::Error;
+	int					StatusCode = 500;
+
+	std::string	filesystemPath; //used for files/dir/uploads/deletion/CGI;
+	std::string	redirectLocation; //used only when action == redirect;
 };
 
 enum class RouteAction {
-	staticFile,
-	directory,
-	redirect,
-	upload,
-	deleteResource,
+	StaticFile,
+	Directory,
+	Redirect,
+	Upload,
+	DeleteResource,
 	CGI,
 	Error
 };
