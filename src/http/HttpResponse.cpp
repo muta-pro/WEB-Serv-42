@@ -80,22 +80,14 @@ HttpResponse HttpResponse::makeError(int code)
 	// response.body = errorPage(code);
 	return response;
 }
-//added for later response builder
-HttpResponse buildErrorResponse(int code, const RouteResult &route) {
-  std::string customBody;
-
-  if (loadConfiguredErrorPage(route, code, customBody))
-    return HttpResponse::make(code, customBody);
-  return HttpResponse::makeError(code);
-}
 
 //added a basic guard line -ivan
 //a complite HTTP header-name validator comes later-
 //this throws then higher-level response builder eventually converts failures to a 500 Internal Server Error
 void HttpResponse::setHeader(const std::string &name,const std::string &value)
 {
-  if (name.empty() || name.std::find_first_of(" \t\r\n:") != std::string::npos
-    || value.std::find_first_of("r\n") != std::string::npos) {
+  if (name.empty() || name.find_first_of(" \t\r\n:") != std::string::npos
+    || value.find_first_of("\r\n") != std::string::npos) {
     throw std::invalid_argument("invalid HTTP header");
   }
 	headers[name] = value;
@@ -156,33 +148,44 @@ this guarantees exactly one Content-Lenght;
 
 
 */
-std::string toBytes(const HttpResponse& response)
+std::string toBytes(const HttpResponse& response, bool headRequest)
 {
 
   HeaderMap headers = response.headers;
-  headers.erase("Content-Lenght");
-  headers["Content-Lenght"] = std::to_string(response.body.size());
+
+  const bool stautsAllowaBody = !(response.statusCode >= 100 && response.statusCode < 200)
+  	&& response.statusCode != 204 && response.statusCode != 304;
+
+  headers.erase("Content-Length");
+  if (stautsAllowaBody) {
+  	headers["Content-Length"] = std::to_string(response.body.size());
+  }
 //added here line - pervet statusCode/Text disagreement
   //store only real info(Status code) then derive text during serialization;
   std::string reason = HttpResponse::reasonFor(response.statusCode);
   if (reason.empty())
     reason = "Unknown";
-  output += reason;
 
 	std::string output;
 	output += "HTTP/1.1 ";
 	output += std::to_string(response.statusCode);
 	output += " ";
-  output += HttpResponse::reasonFor(response.statusCode);
+  output += reason;
 	output += "\r\n";
-	for (const auto& h : response.headers)
+
+	for (const auto& heasder : response.headers)
 	{
-		output += header.first + ": " + header.second + "\r\n";
+		output += header.first;
+		output += + ": ";
+		output += header.second;
+		output += "\r\n";
 	}
 	//if a response already has a Content-Length in its map (a CGI response might), you'd emit it twice. Later you can guard with if (!response.hasHeader("Content-Length"))
 	// output += "Content-Length: ";
 	// output += std::to_string(response.body.size());
 	output += "\r\n";
-	output += response.body;
+	if (stautsAllowaBody && !headRequest) {
+		output += response.body;
+	}
 	return output;
 }
