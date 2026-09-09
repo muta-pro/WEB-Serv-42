@@ -22,8 +22,6 @@ The proposed contracts use C++17 features:
 - deleted copy operations and explicit move operations;
 - range-based loops and `std::move`.
 
-Before adopting the contracts, the team must verify the C++ standard required by its assigned subject. If the subject does not permit C++17, do not merge C++17-only contracts. The design principles still apply, but the types must be translated to the required standard.
-
 All team branches must use the same compiler settings. For C++17, the minimum development flags are:
 
 ```text
