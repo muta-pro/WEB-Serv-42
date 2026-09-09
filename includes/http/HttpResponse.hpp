@@ -8,7 +8,7 @@
 
 struct HttpResponse {
 	int					statusCode = 200;
-	std::string	statusText;
+	// std::string	statusText; remove this line; fixed in toBytes();
 	HeaderMap		headers;
 	std::string	body;
 
@@ -20,6 +20,8 @@ struct HttpResponse {
 	bool hasHeader(const std::string &name) const;
 };
 
-std::string toBytes(const HttpResponse& response);
+std::string toBytes(const HttpResponse& response, bool headRequest);
 
 #endif
+
+
