@@ -11,7 +11,6 @@ lastActivity useful to check for timeout, to disconnect the client
 #include <string>
 #include <ctime>
 #include <unistd.h>
-#include "HttpRequest.hpp"
 #include "HttpResponse.http"
 
 
@@ -31,16 +30,15 @@ class Connection {
 			//setters
 
 	private:
-		int				fd; //socket ID for recv()/send()
-		std::string		readBuff; //for raw bytes from recv()
-		std::string		writeBuff; //empty the buffer using send()
+		int							fd; //socket ID for recv()/send()
+		std::string			readBuff; //for raw bytes from recv()
+		std::string			writeBuff; //empty the buffer using send()
 		ConnectionState	state; //communicates to the loop
-		time_t			lastActivity; //update time on every clients send/recv
-		HttpRequest		req; //fills from readBuff;
-		HttpResponse	resp; //serialized raw txt fills writeBuff
-		std::size_t		byteSent;
-		std::size_t		parseOffset;
-		bool			keepAlive;
+		time_t					lastActivity; //update time on every clients send/recv
+		HttpResponse		resp; //serialized raw txt fills writeBuff
+		std::size_t			byteSent;
+		std::size_t			parseOffset;
+		bool						keepAlive;
 };
 
 #endif
