@@ -134,6 +134,10 @@ An owning type must either:
 
 The chosen baseline is a non-copyable, movable `Connection`. Its move operation transfers the FD and assigns `-1` to the moved-from object.
 
+Client sessions may be stored directly in a container when they are safely movable. A container of `std::unique_ptr<ClientSession>` is also valid when stable heap addresses are genuinely required. `unique_ptr` expresses exclusive ownership, but the separate heap allocation is not free; it should be chosen for ownership or address-stability reasons rather than assumed performance.
+
+Raw pointers may represent non-owning observation, as with immutable configuration pointers in `RouteResult`. Raw pointers must not be used as undocumented owners.
+
 ### Value types for HTTP data
 
 `HttpRequest`, `HttpResponse`, `ParseResult`, and `RouteResult` should be ordinary value types. They own their strings and may be returned by value. C++ move semantics make this practical without introducing shared ownership.
@@ -686,6 +690,34 @@ completion state
 The event loop observes the CGI pipe descriptors but does not own them. CGI cleanup must be idempotent, and a timed-out process must be terminated and reaped according to the project requirements.
 
 Data required after the original request is destroyed must be copied or moved into the CGI runtime object. It must not retain views into a mutable connection buffer.
+
+## Event-readiness API selection
+
+The team must select one readiness API that is permitted by the assigned subject and supported by the evaluation platform.
+
+- `select()` has descriptor-set and FD-number limitations.
+- `poll()` is portable and straightforward but scans its registered descriptor array.
+- `epoll` is Linux-specific and efficiently reports ready events for large interest sets.
+- `kqueue` is available on BSD-derived systems, including macOS.
+
+The comparison is more nuanced than describing these APIs simply as O(N) versus O(1): registration cost, ready-event count, platform behavior, and the number of connections all matter.
+
+The examples in this document use `poll()` terminology. If the team selects another approved API, update the terminology consistently while preserving the same ownership, state, and non-blocking-I/O contracts.
+
+The first implementation uses one readiness backend directly. A template abstraction over multiple backends, custom request/response queues, and `std::function`-based handler dispatch are deferred until a demonstrated requirement justifies their added complexity.
+
+## Kernel queues and application buffers
+
+Operating-system tools and application code expose different buffering layers:
+
+```text
+network -> kernel receive queue -> recv() -> Connection read buffer
+Connection write buffer -> send() -> kernel send queue -> network
+```
+
+For an established TCP connection, tools such as `ss -tn` commonly report bytes in the kernel receive and send queues. These are not the same as the strings owned by `Connection`.
+
+Readiness means that an I/O operation can make progress without blocking. It does not mean that a complete HTTP request is available or that an entire response can be sent in one call.
 
 ## Event-loop integration rules
 
