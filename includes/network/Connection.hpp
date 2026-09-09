@@ -1,4 +1,4 @@
-/*
+=/*
 runntime state;
 explicit keyword:pervets creating copies of fds,
 to avoid double-close when the objs are destroyed;
@@ -51,6 +51,12 @@ class Connection {
 			void addParsedBytes(std::size_t amount) noexcept;
 
 			bool KeepAlive() const noexcept;
+			void setKeepAlive(bool value) noexcept;
+
+			std::time_t lastActivity() const noexcept;
+			void touch() noexcept;
+
+			void resetforNextRequest() noexcept;
 
 			//getters
 			//setters

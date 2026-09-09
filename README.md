@@ -3,6 +3,8 @@
 building a small web server: communication machine
 https://muta-pro.github.io/WEB-Serv-42/
 
+Base-layer contracts and architecture: [docs/BASE_LAYER_ARCHITECTURE.md](docs/BASE_LAYER_ARCHITECTURE.md)
+
 **Our architecture of responsabilites:**
 - receiving requests
 - understanding and deciding them
