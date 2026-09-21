@@ -1,4 +1,4 @@
-=/*
+/*
 runntime state;
 explicit keyword:pervets creating copies of fds,
 to avoid double-close when the objs are destroyed;
@@ -64,14 +64,14 @@ class Connection {
 	private:
 		void closeOwnedFd() noexcept;
 
-		int							_fd; //socket ID for recv()/send()
-		std::string			_readBuff; //for raw bytes from recv()
-		std::string			_writeBuff; //empty the buffer using send()
+		int				_fd; //socket ID for recv()/send()
+		std::string		_readBuff; //for raw bytes from recv()
+		std::string		_writeBuff; //empty the buffer using send()
 		ConnectionState	_stateLoop; //communicates to the loop
-		time_t					_lastActivity; //update time on every clients send/recv
-		std::size_t			_bytesSent;
-		std::size_t			_parseOffset;
-		bool						_keepAlive;
+		time_t			_lastActivity; //update time on every clients send/recv
+		std::size_t		_bytesSent;
+		std::size_t		_parseOffset;
+		bool			_keepAlive;
 };
 
 #endif

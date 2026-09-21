@@ -12,6 +12,16 @@ Ravi reads targetPath to knwo what to sand back to the user
 struct ServerConfig;
 struct LocationConfig;
 
+enum class RouteAction {
+	StaticFile,
+	Directory,
+	Redirect,
+	Upload,
+	DeleteResource,
+	CGI,
+	Error
+};
+
 struct RouteResult {
 	const ServerConfig		*server = nullptr;
 	const LocationConfig	*loc = nullptr;
@@ -21,16 +31,6 @@ struct RouteResult {
 
 	std::string	filesystemPath; //used for files/dir/uploads/deletion/CGI;
 	std::string	redirectLocation; //used only when action == redirect;
-};
-
-enum class RouteAction {
-	StaticFile,
-	Directory,
-	Redirect,
-	Upload,
-	DeleteResource,
-	CGI,
-	Error
 };
 
 #endif

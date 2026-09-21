@@ -1,4 +1,6 @@
-#pragma once
+#ifndef CONFIGPARSER_HPP
+#define CONFIGPARSER_HPP
+
 
 #include <cstddef>
 #include <set>
@@ -80,3 +82,5 @@ class ConfigParser {
 		static std::vector<ServerConfig>	parseFile(const std::string &path);
 		static std::vector<ServerConfig>	parseString(const std::string &text);
 };
+
+#endif
