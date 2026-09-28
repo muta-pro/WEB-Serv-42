@@ -2,7 +2,7 @@ before end phase 0:
 
 1. HttpMethod representation: enum for supported methods or a normalized string if extension methods must remain possible.
 
-2. Shared header type, e.g. typedef std::map<std::string, std::string, CaseInsensitiveLess> HeaderMap;.
+2. Shared header type, e.g. typedef std::map<std::string, std::string, CaseInsensitiveLess> HeaderMap;.DONE
 
 3. HttpStatus/error contract covering parser, router, configuration, CGI, and filesystem failures.
 
