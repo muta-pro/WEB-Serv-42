@@ -4,7 +4,9 @@
 enum class HttpMethod {
 	Get,
 	Post,
-	Delete
+	Head,
+	Delete,
+	Unknown
 };
 
 #endif
