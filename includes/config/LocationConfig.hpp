@@ -4,6 +4,8 @@
 #include <set>
 #include <string>
 
+#include "http/HttpMethod.hpp"
+
 /*
 one location block, FULLY RESOLVED by ConfigParser at startup.
 
@@ -21,7 +23,7 @@ one location block, FULLY RESOLVED by ConfigParser at startup.
 struct LocationConfig {
 	std::string				path;			// URI prefix this block claims, e.g. "/cgi-bin/"
 	std::string				root;			// filesystem base - ALIAS semantics, see resolvePath()
-	std::set<std::string>	allowedMethods = {"GET", "HEAD"};
+	std::set<HttpMethod>	allowedMethods = {HttpMethod::Get, HttpMethod::Head};
 	std::string				index = "index.html";	// tried when target resolves to a directory
 	bool					autoindex = false;		// listing when index is missing
 	std::string				cgiExt;			// ".py" - empty means no CGI in this block
@@ -32,7 +34,7 @@ struct LocationConfig {
 	size_t					clientMaxBody = 1048576;	// already resolved, never "inherit"
 	bool					internalOnly = false;		// nginx `internal;` - see ServerConfig errorPages
 
-	bool	allowsMethod(const std::string &method) const;
+	bool	allowsMethod(HttpMethod method) const;
 	bool	isCGI() const;
 	bool	isRedirect() const;
 	bool	acceptsUploads() const;
