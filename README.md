@@ -6,9 +6,10 @@ Project page: <https://muta-pro.github.io/WEB-Serv-42/>
 
 ## Current status
 
-The project is in **Phase 0: shared contracts and architecture** on `feature/phase-0`.
-
-The shared types are being stabilized before the team creates implementation branches. The current branch is not ready to merge into `main` until all shared headers and committed source files compile and the contract smoke test passes.
+The **Phase 0 shared-contract baseline** is linkable and ready for team review.
+It intentionally contains interfaces and data contracts rather than complete
+parser, router, CGI, or event-loop implementations; those belong on the team's
+separate concern branches after this baseline is merged.
 
 The canonical design reference is [Base-Layer Architecture and Design Contracts](docs/BASE_LAYER_ARCHITECTURE.md).
 
@@ -97,16 +98,15 @@ The first server should implement one approved API directly. A template abstract
 
 ## Build policy
 
-Before the common baseline is merged:
+The common baseline uses:
 
-- confirm the C++ standard required by the assigned subject;
-- use the same standard and warning flags on every branch;
-- include each shared header from a clean translation unit;
-- compile every committed `.cpp` file;
-- link a minimal executable;
-- run the contract smoke tests listed in the architecture document.
+- C++17 with `-Wall -Wextra -Werror` on every branch;
+- `make` to compile every committed `.cpp` and link the scaffold executable;
+- `make test` to rebuild and independently compile every shared header.
 
-The proposed contracts currently use C++17 features. If the assigned subject requires another standard, adapt the contracts before merging them.
+Behavioral tests are added by the implementation branches as behavior is
+implemented. Phase 0 does not pretend that the empty implementation stubs are a
+working web server.
 
 ## Team workflow
 

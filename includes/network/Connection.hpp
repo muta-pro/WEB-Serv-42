@@ -35,7 +35,7 @@ class Connection {
 
 			int fd() const noexcept;
 
-			Connection state() const noexcept;
+			ConnectionState state() const noexcept;
 			void setState(ConnectionState newState) noexcept;
 
 			std::string &readBuff() noexcept;
