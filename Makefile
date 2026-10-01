@@ -6,6 +6,7 @@ CXXFLAGS = -Wall -Wextra -Werror -std=c++17 -MMD -MP
 INC_DIR = includes
 SRC_DIR = src
 OBJ_DIR = obj
+TEST_NAME = contract_tests
 
 SRCS_FILES = main.cpp \
 				config/ConfigParser.cpp \
@@ -38,7 +39,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 -include $(DEPS)
 
 clean:
-	rm -rf $(OBJ_DIR)
+	rm -rf $(OBJ_DIR) $(TEST_NAME)
 
 fclean: clean
 	rm -f $(NAME)
@@ -53,7 +54,10 @@ check-headers:
 		$(CXX) $(CXXFLAGS) $(INCLUDES) -x c++ -fsyntax-only -; \
 	done
 
-test: all check-headers
-	@echo "Phase 0 build and header checks passed."
+$(TEST_NAME): tests/contracts.cpp src/http/HttpRequest.cpp src/http/HttpResponse.cpp src/network/Client.cpp src/cgi/CgiHandler.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $^ -o $@
+
+test: all check-headers $(TEST_NAME)
+	./$(TEST_NAME)
 
 .PHONY: all clean fclean re test check-headers

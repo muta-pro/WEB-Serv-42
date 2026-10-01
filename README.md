@@ -102,11 +102,12 @@ The common baseline uses:
 
 - C++17 with `-Wall -Wextra -Werror` on every branch;
 - `make` to compile every committed `.cpp` and link the scaffold executable;
-- `make test` to rebuild and independently compile every shared header.
+- `make test` to rebuild, independently compile every shared header, and run
+  the shared contract smoke tests.
 
-Behavioral tests are added by the implementation branches as behavior is
-implemented. Phase 0 does not pretend that the empty implementation stubs are a
-working web server.
+Feature-level behavioral tests are added by the implementation branches as
+behavior is implemented. Phase 0 tests only the shared value, serialization,
+ownership, and fake-lifecycle contracts; it is not a working web server.
 
 ## Team workflow
 

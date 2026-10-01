@@ -788,13 +788,11 @@ Before the team branches from the common commit:
 2. Every committed `.cpp` compiles with the agreed standard and warning flags.
 3. The repository contains one build command used by every teammate.
 4. A minimal executable links successfully.
-5. A contract smoke test exercises the complete fake lifecycle.
+5. A contract smoke test exercises the composable fake lifecycle and the
+   shared value, serialization, and descriptor-ownership contracts.
 
 Minimum smoke scenarios:
 
-- a request split across multiple parser feeds;
-- two requests present in one input buffer, with only the first consumed;
-- malformed syntax producing `400` and an internal diagnostic;
 - case-insensitive header lookup;
 - absent versus zero `Content-Length`;
 - HTTP/1.1 and HTTP/1.0 keep-alive decisions;
@@ -806,23 +804,28 @@ Minimum smoke scenarios:
 - moving a `Connection` without double-closing its FD;
 - erasing a session closing its client FD exactly once.
 
+Fragmented input, pipelined requests, malformed syntax, virtual-host selection,
+location matching, and CGI execution are behavioral acceptance tests for their
+own implementation branches. Phase 0 freezes the interfaces they use; it does
+not provide placeholder production implementations of those features.
+
 ## Common-baseline definition of done
 
 The base layer is ready to merge to `main` and branch from when all of the following are true:
 
-- [ ] The required C++ standard is confirmed.
-- [ ] Shared header names, include guards, includes, and declarations compile cleanly.
-- [ ] `HttpRequest` owns its stored data and remains protocol-only.
-- [ ] `HeaderMap` and duplicate-header policy are documented.
-- [ ] Parser status, byte-consumption, request transfer, and reset behavior are fixed.
-- [ ] Every client has its own parser state.
-- [ ] `Connection` is the sole owner of its client FD and has safe move operations.
-- [ ] The state machine and allowed transitions are documented.
-- [ ] Configuration types have agreed, immutable post-startup semantics.
-- [ ] `RouteResult` contains exactly one action and safe defaults.
-- [ ] Router and response-builder interfaces exist.
-- [ ] Response serialization produces one valid message framing decision.
-- [ ] Body ownership and maximum-size rules are defined.
-- [ ] One shared build command and the contract smoke tests pass.
+- [x] The project standard is C++17 on every branch.
+- [x] Shared header names, include guards, includes, and declarations compile cleanly.
+- [x] `HttpRequest` owns its stored data and remains protocol-only.
+- [x] `HeaderMap` and duplicate-header policy are documented.
+- [x] Parser status, byte-consumption, request transfer, and reset behavior are fixed.
+- [x] Every client has its own parser state.
+- [x] `Connection` is the sole owner of its client FD and has safe move operations.
+- [x] The state machine and allowed transitions are documented.
+- [x] Configuration types have agreed, immutable post-startup semantics.
+- [x] `RouteResult` contains exactly one action and safe defaults.
+- [x] Router, response-builder, and CGI runtime interfaces exist.
+- [x] Response serialization produces one valid message framing decision.
+- [x] Body ownership and maximum-size rules are defined.
+- [x] One shared build command and the contract smoke tests pass.
 
 After this point, the common headers are treated as team contracts. A branch that needs a contract change first documents the need and coordinates the change, rather than silently introducing a private alternative.
