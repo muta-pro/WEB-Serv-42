@@ -35,6 +35,8 @@
 *.lib
 
 # Executables
+webserv
+contract_tests
 *.exe
 *.out
 *.app
