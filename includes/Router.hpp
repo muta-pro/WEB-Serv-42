@@ -1,4 +1,4 @@
-#ifndef ROUTER_HPPROUTER_HPP
+#ifndef ROUTER_HPP
 #define ROUTER_HPP
 
 #include "RouteResult.hpp"

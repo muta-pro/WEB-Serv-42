@@ -173,10 +173,10 @@ std::string toBytes(const HttpResponse& response, bool headRequest)
   output += reason;
 	output += "\r\n";
 
-	for (const auto& header : response.headers)
+	for (const auto& header : headers)
 	{
 		output += header.first;
-		output += + ": ";
+		output += ": ";
 		output += header.second;
 		output += "\r\n";
 	}
