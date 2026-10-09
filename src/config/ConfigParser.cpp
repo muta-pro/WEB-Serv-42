@@ -62,6 +62,67 @@ static std::vector<Token>	tokenize(const std::string &text)
 	return (tokens);
 }
 
+struct Cursor {
+	static constexpr size_t		NO_MAX = static_cast<size_t>(-1);	// readArgs: no upper limit
+
+	const std::vector<Token>	&tokens;
+	size_t						pos;
+
+	bool					atEnd() const;
+	const Token				&peek() const;
+	const Token				&next();
+	void					expect(const std::string &text);
+	std::vector<Token>		readArgs(const Token &name, size_t min, size_t max);
+};
+
+bool	Cursor::atEnd() const
+{
+	return (pos >= tokens.size());
+}
+
+const Token	&Cursor::peek() const
+{
+	if (atEnd())
+		throw ConfigError(tokens.empty() ? 1 : tokens.back().line, "unexpected end of file");
+	return (tokens[pos]);
+}
+
+const Token	&Cursor::next()
+{
+	const Token &t = peek();
+	pos++;
+	return (t);
+}
+
+void	Cursor::expect(const std::string &text)
+{
+	const Token &t = next();
+	if (t.text != text)
+		throw ConfigError(t.line, "expected '" + text + "' before '" + t.text + "'");
+}
+
+/*
+arguments of a simple directive, consuming its ';'. a '{' or '}' first means
+the ';' was forgotten. returns Tokens, not strings, so the value parsers can
+still point at the line of a bad argument.
+*/
+std::vector<Token>	Cursor::readArgs(const Token &name, size_t min, size_t max)
+{
+	std::vector<Token>	args;
+
+	while (peek().text != ";")
+	{
+		const Token &t = next();
+		if (t.text == "{" || t.text == "}")
+			throw ConfigError(t.line, "expected ';' before '" + t.text + "'");
+		args.push_back(t);
+	}
+	next();
+	if (args.size() < min || args.size() > max)
+		throw ConfigError(name.line, "invalid number of arguments in '" + name.text + "'");
+	return (args);
+}
+
 std::vector<ServerConfig>	ConfigParser::parseString(const std::string &text)
 {
 	std::vector<Token> tokens = tokenize(text);
