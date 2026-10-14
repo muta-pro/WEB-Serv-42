@@ -6,7 +6,7 @@
 > truth for code. If anything here disagrees with the code, trust the code and
 > say so.
 
-Last updated: 2026-10-01 · Branch: `feature/config`
+Last updated: 2026-10-13 · Branch: `config` (`feature/config` was merged in and deleted on origin; §2 still describes the old flow)
 
 ---
 
@@ -119,6 +119,13 @@ Ivan's recent changes (on `feature/phase-0`, 2026-09-22 to 09-28):
    Don't edit the doc yet.
 5. Not config: `includes/Router.hpp:1` has a broken include guard
    (`#ifndef ROUTER_HPPROUTER_HPP` but `#define ROUTER_HPP`). Tell its owner.
+6. **`readArgs` reports a missing `;` badly** (known, accepted for now). In
+   `invalid_syntax.conf` the `listen` on line 27 has no `;`, so `readArgs`
+   swallows `server_name broken.test` up to the next `;` and throws
+   `line 27: invalid number of arguments in 'listen'`. The file expects
+   `line 28: expected ';' before 'server_name'`. Possible fix: when there are
+   too many arguments, throw at `args[max]` (the first extra one) with
+   "expected ';' before ...". Not a grading issue, so it's parked.
 
 ## 6. The parser's contract (from ConfigParser.hpp)
 
@@ -252,20 +259,20 @@ Each step ends with something you can run.
 
 - [x] **0. Scaffolding** (stubs only): `main.cpp`, `ConfigDump.hpp/.cpp`.
       Still to do: the Makefile entries and the implementations.
-- [ ] **1. `ConfigError`.** Constructor builds `config error, line N: <msg>`,
+- [x] **1. `ConfigError`.** Constructor builds `config error, line N: <msg>`,
       plus the `line()` getter.
-- [ ] **2. Tokenizer.** `struct Token { std::string text; size_t line; };`
+- [x] **2. Tokenizer.** `struct Token { std::string text; size_t line; };`
       and a function from file text to `std::vector<Token>`. The rules:
       whitespace separates tokens; `{ } ;` are always their own token; `#`
       starts a comment to the end of the line, even when glued to a token;
       count lines. Test by printing the tokens of edge_cases.conf.
-- [ ] **3. Parser cursor.** A struct holding the tokens and a position.
+- [x] **3. Parser cursor.** A struct holding the tokens and a position.
       Helpers:
       - `peek()` / `next()`, which throw "unexpected end of file" at EOF
       - `expect("{")`
       - `readArgs()`: collects tokens until `;`, and throws if it hits `{` or
         `}` first. This is what produces "expected ';' before X".
-- [ ] **4. Top level and the server skeleton.**
+- [x] **4. Top level and the server skeleton.**
       - The top level only accepts `server {`; anything else is "directive
         outside any block".
       - Inside a server, dispatch directives until `}`. Anything not on the
@@ -306,9 +313,11 @@ Each step ends with something you can run.
       - Write a script that runs `./webserv` on each file. Valid files must
         parse and dump; invalid files must exit non-zero with the right line
         number.
+        `invalid_syntax.conf` will fail the line-number check until §5.6 is
+        fixed.
 
-**Next up:** Step 1, then Step 2 (tokenizer). Ravi asked to go through the
-tokenizer at the same pace as the C++ lessons.
+**Next up:** Step 5 (value parsers). Ravi asked to go through the parser
+at the same pace as the C++ lessons.
 
 ## 11. Open decisions
 

@@ -2,7 +2,7 @@
 #include <cctype>
 #include <iostream> //for TESTING
 
-struct Token
+struct  Token
 {
 	std::string	text;
 	size_t		line;
@@ -123,10 +123,76 @@ std::vector<Token>	Cursor::readArgs(const Token &name, size_t min, size_t max)
 	return (args);
 }
 
+/*
+STEP 4 PLACEHOLDER. step 7 replaces this with the real location parser
+(RawLocation). for now it only walks over the block, so a server that
+contains locations can be parsed end to end.
+called with the cursor just past the "location" keyword.
+*/
+static void	parseLocation(Cursor &cur)
+{
+	const Token &path = cur.next();
+
+	if (path.text[0] != '/')
+		throw ConfigError(path.line, "expected a path after 'location'");
+	cur.expect("{");
+	while (cur.peek().text != "}")
+	{
+		const Token &name = cur.next();
+		cur.readArgs(name, 0, Cursor::NO_MAX);	// thrown away until step 7
+	}
+	cur.next();	// the '}'
+}
+
+/*
+one server block. called with the cursor just past "server {", returns
+with the cursor just past its '}'. only listen, server_name and location
+so far; anything else is an unknown directive until step 6 adds it.
+*/
+static ServerConfig	parseServer(Cursor &cur)
+{
+	ServerConfig	server;
+
+	while (cur.peek().text != "}")
+	{
+		const Token &name = cur.next();
+
+		if (name.text == "listen")
+			cur.readArgs(name, 1, 1);
+		else if (name.text == "server_name")
+		{
+			std::vector<Token> args = cur.readArgs(name, 1, Cursor::NO_MAX);
+			for (size_t i = 0; i < args.size(); i++)
+				server.serverNames.push_back(args[i].text);
+		}
+		else if (name.text == "location")
+			parseLocation(cur);
+		else
+			throw ConfigError(name.line, "unknown directive '" + name.text + "'");
+	}
+	cur.next();
+	return (server);
+}
+
+/*
+the top level holds server blocks and nothing else.
+*/
 std::vector<ServerConfig>	ConfigParser::parseString(const std::string &text)
 {
-	std::vector<Token> tokens = tokenize(text);
-	for (size_t i = 0; i < tokens.size(); i++)
-		std::cout << tokens[i].line << "\t" << tokens[i].text << "\n";   // TEMPORARY, needs <iostream>
-	return {};
+	std::vector<Token>			tokens = tokenize(text);
+	Cursor						cur{tokens, 0};
+	std::vector<ServerConfig>	servers;
+
+	while (!cur.atEnd())
+	{
+		const Token &t = cur.next();
+
+		if (t.text == "}")
+			throw ConfigError(t.line, "unexpected '}'");
+		if (t.text != "server")
+			throw ConfigError(t.line, "directive '" + t.text + "' is outside any block");
+		cur.expect("{");
+		servers.push_back(parseServer(cur));
+	}
+	return (servers);
 }
