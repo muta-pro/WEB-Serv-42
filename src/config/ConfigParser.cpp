@@ -280,33 +280,91 @@ static void	parseLocation(Cursor &cur)
 }
 
 /*
+STEP 6 - one simple (non-block) directive at server level. called with the
+cursor just past the directive's name; reads its arguments and the ';'.
+	listen, server_name, error_page     -> server
+	root, index, autoindex, methods,    -> defaults, which are only copied
+	client_max_body_size                   into the locations (step 8)
+a repeated directive: the last one wins.
+kept out of parseServer so the step 6 tests can call it and read the
+defaults back - nothing else can see them until step 8.
+*/
+static void	parseServerDirective(Cursor &cur, const Token &name, ServerConfig &server,
+	[[maybe_unused]] ServerDefaults &defaults)
+{
+	if (name.text == "listen")
+	{
+		std::vector<Token> args = cur.readArgs(name, 1, 1);
+		server.listens.push_back(parseListen(args[0]));
+	}
+	else if (name.text == "server_name")
+	{
+		std::vector<Token> args = cur.readArgs(name, 1, Cursor::NO_MAX);
+		for (size_t i = 0; i < args.size(); i++)
+			server.serverNames.push_back(args[i].text);
+	}
+	else if (name.text == "error_page")
+	{
+		std::vector<Token> args = cur.readArgs(name, 2, Cursor::NO_MAX);
+		for (size_t i = 0; i < args.size() - 1; i++)
+			server.errorPages<parseStatusCode(args[i], ??, ??),args.back().text>;
+		if (args.back().text[0] != '/')
+			throw ConfigError(args.back().line, "expected a URI starting with '/', not 'X'");
+	}
+	else if (name.text == "client_max_body_size")
+	{
+		std::vector<Token> args = cur.readArgs(name, 1, 1);
+		server.clientMaxBody = args[0];
+	}
+	else if (name.text == "root")
+	{
+
+	}
+	else if (name.text == "index")
+	{
+
+	}
+	else if (name.text == "autoindex")
+	{
+		std::vector<Token> args = cur.readArgs(name, 1, 1);
+		parseOnOff(args[0]);
+	}
+	/*
+	TODO step 6 - one branch each:
+	- error_page CODE... URI      2 args or more. every arg but the last is
+	                              a code, 300-599; the last is the URI and
+	                              must start with '/' (guarantee 5)
+	- client_max_body_size SIZE   -> defaults. what 0 means: open decision 7.
+	                              ServerConfig::clientMaxBody is step 8 (§9)
+	- root PATH, index FILE       -> defaults
+	- autoindex on|off            -> defaults
+	- methods M...                -> defaults. a second methods line
+	                              replaces the first, it doesn't add to it
+	then drop [[maybe_unused]] from defaults and from each value parser
+	you now call.
+	*/
+	else
+		throw ConfigError(name.line, "unknown directive '" + name.text + "'");
+}
+
+/*
 one server block. called with the cursor just past "server {", returns
-with the cursor just past its '}'. only listen, server_name and location
-so far; anything else is an unknown directive until step 6 adds it.
+with the cursor just past its '}'. location is the only block directive;
+everything else is a simple directive.
 */
 static ServerConfig	parseServer(Cursor &cur)
 {
 	ServerConfig	server;
+	ServerDefaults	defaults;	// step 8 copies these into the locations, at the '}'
 
 	while (cur.peek().text != "}")
 	{
 		const Token &name = cur.next();
 
-		if (name.text == "listen")
-		{
-			std::vector<Token> args = cur.readArgs(name, 1, 1);
-			server.listens.push_back(parseListen(args[0]));
-		}
-		else if (name.text == "server_name")
-		{
-			std::vector<Token> args = cur.readArgs(name, 1, Cursor::NO_MAX);
-			for (size_t i = 0; i < args.size(); i++)
-				server.serverNames.push_back(args[i].text);
-		}
-		else if (name.text == "location")
+		if (name.text == "location")
 			parseLocation(cur);
 		else
-			throw ConfigError(name.line, "unknown directive '" + name.text + "'");
+			parseServerDirective(cur, name, server, defaults);
 	}
 	cur.next();
 	return (server);

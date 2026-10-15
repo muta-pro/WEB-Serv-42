@@ -47,6 +47,7 @@ functions are `inline`: a section you comment out then won't trip
 #include "sections/03_cursor.hpp"
 #include "sections/04_skeleton.hpp"
 #include "sections/05_values.hpp"
+#include "sections/06_server.hpp"
 
 int	main(int argc, char **argv)
 {
@@ -57,7 +58,7 @@ int	main(int argc, char **argv)
 	t.add(3, "cursor", "atEnd, peek, next, expect, readArgs", testCursor);
 	t.add(4, "skeleton", "the top level and server blocks", testSkeleton);
 	t.add(5, "values", "numbers, listen, sizes, on/off, status codes, methods", testValues);
-	// t.add(6, "server", "the remaining server-level directives", testServer);
+	t.add(6, "server", "the remaining server-level directives", testServer);
 	// t.add(7, "locations", "location blocks", testLocations);
 	// t.add(8, "finalize", "defaults, the / location, the 7 guarantees", testFinalize);
 	// t.add(9, "file", "parseFile", testFile);
@@ -67,7 +68,7 @@ int	main(int argc, char **argv)
 
 // make -C tests/ConfigParser      # from the repo root: build and run everything
 // cd tests/ConfigParser
-// make values                     # one section: error, tokenizer, cursor, skeleton, values
+// make values                     # one section: error, tokenizer, cursor, skeleton, values, server
 // make quiet                      # one ✓ or ✗ per test; details only for failures
 // make verbose                    # input, expected and got for every test
 // make test ARGS="-f listen -x"   # only tests whose name contains "listen"; stop at the first failure
