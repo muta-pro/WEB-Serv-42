@@ -1,6 +1,7 @@
 #include "config/ConfigParser.hpp"
 #include <cctype>
 #include <iostream> //for TESTING
+#include <limits>
 
 struct  Token
 {
@@ -124,6 +125,140 @@ std::vector<Token>	Cursor::readArgs(const Token &name, size_t min, size_t max)
 }
 
 /*
+STEP 5 - value parsers. each takes the Token, not just its text, so an
+error points at the line of the bad argument.
+[[maybe_unused]] stops -Werror failing on a static function nobody calls
+yet. remove it once step 6 calls the function.
+*/
+
+/*
+a plain decimal: digits only, no sign, no spaces, nothing after. a value
+above max is refused BEFORE it is computed, so it can never overflow.
+std::stoi / std::stoul are not used: they accept "+80", " 80" and "80abc",
+and throw their own exceptions instead of a ConfigError.
+digits is the part of tok.text being read ("8080" out of "0.0.0.0:8080");
+tok is only there for the error message.
+*/
+static size_t	parseNumber(const Token &tok, const std::string &digits, size_t max)
+{
+	size_t	value = 0;
+
+	if (digits.empty())
+		throw ConfigError(tok.line, "invalid number in '" + tok.text + "'");
+	for (size_t i = 0; i < digits.length(); i++)
+	{
+		if (!std::isdigit(static_cast<unsigned char>(digits[i])))
+			throw ConfigError(tok.line, "invalid number in '" + tok.text + "'");
+		size_t d = static_cast<size_t>(digits[i] - '0');
+		if (value > (max - d) / 10)
+			throw ConfigError(tok.line, "number too large in '" + tok.text + "'");
+		value = value * 10 + d;
+	}
+	return (value);
+}
+
+/*
+"host:port" or a bare "port". the host can be any non-empty string (open
+decision 2): the socket code resolves it with getaddrinfo. a bare port
+keeps Listen's default host, 0.0.0.0, meaning every interface.
+*/
+static Listen	parseListen(const Token &arg)
+{
+	Listen		result;
+	std::string	port = arg.text;
+	size_t		colon = arg.text.find(':');
+
+	if (colon != std::string::npos)
+	{
+		result.host = arg.text.substr(0, colon);
+		port = arg.text.substr(colon + 1);
+		if (result.host.empty())
+			throw ConfigError(arg.line, "missing host in '" + arg.text + "'");
+	}
+	result.port = static_cast<int>(parseNumber(arg, port, 65535));
+	if (result.port == 0)
+		throw ConfigError(arg.line, "port 0 is not allowed in '" + arg.text + "'");
+	return (result);
+}
+
+/*
+client_max_body_size: digits with an optional k/K, m/M or g/G suffix, in
+binary units (1k = 1024). the max given to parseNumber leaves room for the
+multiply, so "99999999999G" is refused instead of wrapping around.
+*/
+[[maybe_unused]] static size_t	parseSize(const Token &arg)
+{
+	std::string	digits = arg.text;
+	size_t		multiplier = 1;
+	char		suffix = digits.back();
+
+	if (std::isalpha(static_cast<unsigned char>(suffix)))
+	{
+		if (suffix == 'k' || suffix == 'K' )
+			multiplier = 1024;
+		else if (suffix == 'm' || suffix == 'M' )
+			multiplier = 1024 * 1024;
+		else if (suffix == 'g' || suffix == 'G' )
+			multiplier = 1024 * 1024 * 1024;
+		else
+			throw ConfigError(arg.line, "unknown size suffix in '" + arg.text + "'");
+		digits.pop_back();
+	}
+	return (parseNumber(arg, digits, std::numeric_limits<size_t>::max() / multiplier) * multiplier);
+}
+
+[[maybe_unused]] static bool	parseOnOff(const Token &arg)
+{
+	if (arg.text == "on" || arg.text == "ON")
+		return (true);
+	if (arg.text == "off" || arg.text == "OFF")
+		return (false);
+	throw ConfigError(arg.line, "expected 'on' or 'off', not '" + arg.text + "'");
+}
+
+/*
+error_page takes 300-599, return takes 300-399. a status code is always
+three digits, so 999 is ceiling enough for parseNumber.
+*/
+[[maybe_unused]] static int	parseStatusCode(const Token &arg, int lo, int hi)
+{
+	int	code = static_cast<int>(parseNumber(arg, arg.text, 999));
+
+	if (code < lo || code > hi)
+		throw ConfigError(arg.line, "status code '" + arg.text + "' is not between "
+			+ std::to_string(lo) + " and " + std::to_string(hi));
+	return (code);
+}
+
+/*
+methods GET POST DELETE; -> that set. methods are case-sensitive
+(RFC 9110 9.1), so "get" is refused. HEAD may be written out (open
+decision 5); grantImplicitHead() also adds it wherever GET is, in step 8.
+a repeated method is harmless: a set holds each value once.
+*/
+[[maybe_unused]] static std::set<HttpMethod>	parseMethods(const std::vector<Token> &args)
+{
+	std::set<HttpMethod>	methods;
+
+	for (size_t i = 0; i < args.size(); i++)
+	{
+		const std::string &m = args[i].text;
+
+		if (m == "GET")
+			methods.insert(HttpMethod::Get);
+		else if (m == "HEAD")
+			methods.insert(HttpMethod::Head);
+		else if (m == "POST")
+			methods.insert(HttpMethod::Post);
+		else if (m == "DELETE")
+			methods.insert(HttpMethod::Delete);
+		else
+			throw ConfigError(args[i].line, "unknown method '" + m + "'");
+	}
+	return (methods);
+}
+
+/*
 STEP 4 PLACEHOLDER. step 7 replaces this with the real location parser
 (RawLocation). for now it only walks over the block, so a server that
 contains locations can be parsed end to end.
@@ -158,7 +293,10 @@ static ServerConfig	parseServer(Cursor &cur)
 		const Token &name = cur.next();
 
 		if (name.text == "listen")
-			cur.readArgs(name, 1, 1);
+		{
+			std::vector<Token> args = cur.readArgs(name, 1, 1);
+			server.listens.push_back(parseListen(args[0]));
+		}
 		else if (name.text == "server_name")
 		{
 			std::vector<Token> args = cur.readArgs(name, 1, Cursor::NO_MAX);

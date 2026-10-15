@@ -25,6 +25,9 @@ Last updated: 2026-10-13 · Branch: `config` (`feature/config` was merged in and
   have faded. Ravi wants to understand and write the code, so don't implement
   things unless asked. ("Create the files, don't implement them yet" means
   stubs with TODO comments.)
+- **Tests go in the suite, not in throwaway scripts.** Every step adds its
+  section to `tests/ConfigParser/` (see §12). Ravi asked for this so the
+  tests build up into one suite for the finished parser.
 - **Don't fix contradictions** between `docs/BASE_LAYER_ARCHITECTURE.md` and
   the code without asking. Ravi wants to understand the doc first. Flag them
   instead.
@@ -255,7 +258,8 @@ because the HTTP parser and connection code would be the readers.
 
 ## 10. Step-by-step plan
 
-Each step ends with something you can run.
+Each step ends with something you can run, and adds its section to the
+test suite (§12).
 
 - [x] **0. Scaffolding** (stubs only): `main.cpp`, `ConfigDump.hpp/.cpp`.
       Still to do: the Makefile entries and the implementations.
@@ -279,7 +283,7 @@ Each step ends with something you can run.
         list is "unknown directive".
       - Start with only `listen`, `server_name` and `location`, so
         default.conf runs early.
-- [ ] **5. Value parsers.**
+- [x] **5. Value parsers.**
       - `parseListen`: `host:port` or `port`, port 1–65535, digits only
       - `parseSize`: k/m/g suffixes, rejects `10X`, guards against overflow
       - `parseOnOff`
@@ -308,27 +312,76 @@ Each step ends with something you can run.
       7. After the end of the file: reject a file with zero servers.
 - [ ] **9. `parseFile`.** Read with `std::ifstream` (throw ConfigError if it
       can't be opened), then call `parseString`.
-- [ ] **10. Test corpus and script.**
+- [ ] **10. Test corpus.**
       - Split the rejection cases into `conf/invalid/<case>.conf`.
-      - Write a script that runs `./webserv` on each file. Valid files must
-        parse and dump; invalid files must exit non-zero with the right line
-        number.
-        `invalid_syntax.conf` will fail the line-number check until §5.6 is
+      - Add a `corpus` section to the suite (§12): `parsesFile` for every
+        valid file, `rejectsFile` with the right line for every invalid one.
+        That replaces the script this step used to plan.
+      - Still to decide: whether to also run `./webserv` on each file once
+        `main.cpp` and `dumpConfig` work.
+        `invalid_syntax.conf` is a known issue in the suite until §5.6 is
         fixed.
 
-**Next up:** Step 5 (value parsers). Ravi asked to go through the parser
+**Next up:** Step 6 (the remaining server-level directives). Remove the
+`[[maybe_unused]]` markers as each value parser gets called. Ravi asked to go through the parser
 at the same pace as the C++ lessons.
 
 ## 11. Open decisions
 
 1. A server with no `listen`: error, or default to `0.0.0.0:8080`?
-2. `listen localhost:8080`: accept hostnames, or IP addresses only?
-   (`bind()` needs an IP address.)
+2. ~~`listen localhost:8080`: accept hostnames, or IP addresses only?~~
+   **Decided 2026-10-14: any non-empty host string.** The parser doesn't
+   validate it; the socket code resolves it with `getaddrinfo`, so
+   `localhost` works. A bad host is only caught at bind time, without a line
+   number. Tell Ivan.
 3. The meaning of `ServerConfig::clientMaxBody` (§9). Agree with Ivan.
 4. The same `server_name` on the same listen in two servers: error, or first
    one wins?
-5. Can `HEAD` be written explicitly in `methods`, or is it only granted
-   implicitly with GET?
+5. ~~Can `HEAD` be written explicitly in `methods`?~~ **Decided
+   2026-10-14: yes, accepted.** `methods GET HEAD;` is the same as
+   `methods GET;`.
 6. Ivan's `HttpMethod` enum (`Get, Post, Delete`, no Head) vs the config's
    `std::set<std::string>` with "HEAD". Keep the strings in config, or switch
    to the enum? Decide with Ivan.
+7. `client_max_body_size 0;` parses as 0. In nginx, 0 means "no limit";
+   read literally, it would refuse every body. Accept it with a meaning,
+   or reject it? Decide in step 6.
+
+## 12. Test suite: `tests/ConfigParser/`
+
+One test program for the whole parser, with one section per step. Its own
+Makefile, so the shared root Makefile and Ivan's `tests/contracts.cpp` are
+untouched.
+
+```sh
+make -C tests/ConfigParser            # from the repo root: build, run everything
+make                                  # same, from inside tests/ConfigParser
+make values                           # one section (names come from sections/NN_name.hpp)
+make quiet | make verbose | make list | make help
+make facts FILE=conf/default.conf     # what the parser makes of a file, as facts
+make test ARGS="-f listen -x"         # ./tester options; ./tester --help lists them
+```
+
+- **Sections so far:** 1 `error`, 2 `tokenizer`, 3 `cursor`, 4 `skeleton`,
+  5 `values` (204 tests). Steps 6-10 are commented out in `main.cpp`, ready
+  to add.
+- **How it reaches the internals:** `main.cpp` includes `ConfigParser.cpp`
+  itself, through `parser_under_test.hpp`. That's how the tests see `Token`,
+  `Cursor` and the `static` helpers. When a function's signature changes,
+  its tests have to change with it.
+- **Each test runs in its own forked process**, with a 2 s time limit and
+  AddressSanitizer + UBSan (`SAN=0` turns them off). A crash or an endless
+  loop fails that one test, with the line it crashed on, and the rest still
+  run.
+- **Checks:** `t.test` (a value or a ConfigError), `t.parses` (facts like
+  `"s0 listen = 0.0.0.0:80"`), `t.rejects` (line + message), and the file
+  versions `t.parsesFile` / `t.rejectsFile`. The top of `main.cpp`
+  explains how to add a test or a section.
+- **Known issues:** `t.known("why")` before a check shows it in yellow and
+  in the summary, but doesn't count it as a failure. §5.6 is in there twice
+  (cursor + `invalid_syntax.conf`). When it passes, the summary says to
+  delete the `known()` line.
+- Some tests pin behaviour that later steps will change on purpose, and
+  their names say so. For example, an empty file gives 0 servers until
+  step 8 rejects it.
+
