@@ -74,7 +74,8 @@ inline void	testValues(Tester &t)
 			return (std::to_string(parseSize(Token{text, 7})));
 		});
 	};
-	size("0", gives("0"));	// what 0 should mean is open decision 7
+	size("0", fails(7, "size 0 is not allowed in '0'"));	// open decision 7: 0 is refused
+	size("0k", fails(7, "size 0 is not allowed in '0k'"));
 	size("1", gives("1"));
 	size("512", gives("512"));
 	size("1k", gives("1024"));

@@ -6,7 +6,7 @@
 > truth for code. If anything here disagrees with the code, trust the code and
 > say so.
 
-Last updated: 2026-10-13 · Branch: `config` (`feature/config` was merged in and deleted on origin; §2 still describes the old flow)
+Last updated: 2026-10-21 · Branch: `config`
 
 ---
 
@@ -25,6 +25,10 @@ Last updated: 2026-10-13 · Branch: `config` (`feature/config` was merged in and
   have faded. Ravi wants to understand and write the code, so don't implement
   things unless asked. ("Create the files, don't implement them yet" means
   stubs with TODO comments.)
+- **How a step goes:** Claude writes the scaffold (signatures, plumbing,
+  TODO comments naming the exact error messages) and the step's test
+  section first. Ravi writes the code against the failing tests, and Claude
+  reviews it by running the suite. Steps 6 and 7 went this way.
 - **Tests go in the suite, not in throwaway scripts.** Every step adds its
   section to `tests/ConfigParser/` (see §12). Ravi asked for this so the
   tests build up into one suite for the finished parser.
@@ -35,17 +39,26 @@ Last updated: 2026-10-13 · Branch: `config` (`feature/config` was merged in and
   - Webserv Config Layer: https://claude.ai/artifact/E3esNMLboixvvvF8cCR9Ne
   - Mindmap of all parts: https://claude.ai/artifact/CP1HjycyU2bJNwTaJD6YBq
   - Part 4 (HeaderMap/HttpRequest): https://claude.ai/artifact/YMZuPsKgpEBHAEG46p73oW
+  - ConfigParser Pipeline (step through a .conf as a mindmap, linked to the
+    C++): https://claude.ai/artifact/A7jfoArEgnKW58K7mHokKT. **Update it when
+    the parser is done**, see §13.
 
 ## 2. Git workflow
 
-Ravi's config work lives on its **own branch, `feature/config`**, created from
-`feature/phase-0` (Ivan's working branch). That way Ravi can commit and push
-freely without Ivan ever getting a merge conflict.
+Ravi's config work lives on its **own branch, `config`** (tracks
+`origin/config`), so Ravi can commit and push freely without Ivan ever
+getting a merge conflict. The old `feature/config` and `feature/phase-0`
+branches were merged and deleted on origin. `origin/main` holds the merged
+phase-0 work (PR #3) and is already merged into `config`. Origin also has a
+`network` branch; check with Ivan which branch he works on.
+
+Pushing goes over SSH (origin's push URL is `git@github.com:...`). The machine
+you push from needs a GitHub SSH key.
 
 ```sh
 # at school, first time
 git fetch origin
-git switch feature/config          # creates a local branch tracking origin/feature/config
+git switch config                  # creates a local branch tracking origin/config
 
 # every session
 git pull                           # get what was pushed from home
@@ -55,12 +68,11 @@ git push
 
 # now and then, pick up Ivan's changes so the branches don't drift apart
 git fetch origin
-git merge origin/feature/phase-0   # conflicts, if any, show up HERE, on Ravi's branch
+git merge origin/main              # conflicts, if any, show up HERE, on Ravi's branch
 ```
 
-When the parser is done, open a PR from `feature/config` into
-`feature/phase-0`. Before that, decide whether this context file should be
-merged too, or removed first.
+When the parser is done, open a PR from `config` into `main`. Before that,
+decide whether this context file should be merged too, or removed first.
 
 ## 3. Pipeline position
 
@@ -92,9 +104,10 @@ pointers, which `RouteResult` borrows, and never mutates them.
 
 Ivan's recent changes (on `feature/phase-0`, 2026-09-22 to 09-28):
 - moved `notes.md` and `toDo.md` into `docs/`
-- added `includes/http/HttpMethod.hpp`: `enum class HttpMethod { Get, Post, Delete };`
-  (no Head). The config layer stores methods as `std::set<std::string>`,
-  which includes "HEAD". Settle this with Ivan; see open decision 6.
+- added `includes/http/HttpMethod.hpp`. Since 2026-10-01 it reads
+  `enum class HttpMethod { Get, Post, Head, Delete, Unknown };` (Ivan added
+  `Head` and `Unknown` then). The config layer uses it: methods are a
+  `std::set<HttpMethod>` (open decision 6, settled).
 - added an empty `includes/CgiProcess.hpp`
 
 ## 5. Problems found in the code review
@@ -107,7 +120,7 @@ Ivan's recent changes (on `feature/phase-0`, 2026-09-22 to 09-28):
    in §8.
 3. **`ServerConfig::clientMaxBody` has no defined meaning.** Nothing in the
    headers, the doc or the code says who reads it. It overlaps with
-   `ServerDefaults::clientMaxBody`. Options in §9; **decision pending.**
+   `ServerDefaults::clientMaxBody`. **Decided 2026-10-21: option B** (§9).
 4. **Architecture doc vs headers.** Build against the **headers**, which
    record the later numbered decisions ("decision 5", "decision 6").
 
@@ -115,7 +128,7 @@ Ivan's recent changes (on `feature/phase-0`, 2026-09-22 to 09-28):
    |---|---|---|
    | Server-level root | yes | no |
    | Error pages per location | yes | no |
-   | Methods stored as | `HttpMethod` enum | string set |
+   | `HttpMethod` values | `Get, Post, Delete` | also `Head` and `Unknown` (`HttpMethod.hpp`) |
    | Index files per location | several | one |
    | CGI mappings per location | several | one |
 
@@ -206,13 +219,12 @@ missing "not set" state. Use it in a private struct inside ConfigParser.cpp:
 
 ```cpp
 struct RawLocation {
-    std::string                             path;
     std::optional<std::string>              root;
     std::optional<std::string>              index;
     std::optional<bool>                     autoindex;
     std::optional<size_t>                   clientMaxBody;
-    std::optional<std::set<std::string>>    methods;
-    LocationConfig                          own;   // location-only fields: cgi, upload_store, return, internal
+    std::optional<std::set<HttpMethod>>     methods;
+    LocationConfig                          own;   // path, cgi, upload_store, return, internal
 };
 ```
 
@@ -232,7 +244,7 @@ struct RawLocation {
 Only the inheritable fields are `optional`. Downstream code never sees an
 `optional`, which is how guarantee 3 holds.
 
-## 9. Pending decision: what `ServerConfig::clientMaxBody` means
+## 9. Decided (B): what `ServerConfig::clientMaxBody` means
 
 The timing problem: the location is only known after routing, and routing
 runs after the whole request (body included) is parsed. Until then, only a
@@ -253,8 +265,11 @@ Example from default.conf: the server sets `1M`, while `/upload/` sets `10M`.
   example 100M) and the router checks per location. Simplest; the downside is
   that over-limit bodies under the ceiling get buffered before rejection.
 
-Recommendation: B, or C to keep the config smaller. **Agree it with Ivan**,
-because the HTTP parser and connection code would be the readers.
+**Decided 2026-10-21: B.** Step 8 sets it to the largest limit of the
+server's locations. Tell Ivan, because his HTTP parser is the reader: it
+compares `Content-Length` with `server.clientMaxBody` before reading the
+body (413 if over), and the router does the exact per-location check after.
+Decision 7 (no `0`) keeps this simple: every location has a real limit.
 
 ## 10. Step-by-step plan
 
@@ -288,8 +303,9 @@ test suite (§12).
       - `parseSize`: k/m/g suffixes, rejects `10X`, guards against overflow
       - `parseOnOff`
       - `parseStatusCode(lo, hi)`: 300–599 for error_page, 3xx for return
-      - `parseMethods`: GET/POST/DELETE (HEAD? see open decisions)
-- [ ] **6. The remaining server-level directives.**
+      - `parseMethods`: GET/HEAD/POST/DELETE into a `std::set<HttpMethod>`,
+        case-sensitive
+- [x] **6. The remaining server-level directives.**
       - `error_page`: last argument is the URI and must start with `/`
       - `client_max_body_size`
       - root/index/autoindex/methods, which go into ServerDefaults
@@ -301,15 +317,21 @@ test suite (§12).
       - duplicate location paths
 
       `internal;` takes no arguments; `cgi` takes exactly two (extension,
-      interpreter).
+      interpreter). The exact error messages are pinned in
+      `tests/ConfigParser/sections/07_locations.hpp`.
 - [ ] **8. Finalize at the server's `}`.**
       1. Fill in the defaults with `value_or`.
       2. Create `/` if it's missing.
       3. Call `grantImplicitHead()` on every location.
       4. Reject an empty root.
       5. Handle a missing listen (open decision 1).
-      6. Set `ServerConfig::clientMaxBody` (§9).
+      6. Set `ServerConfig::clientMaxBody` to the largest `clientMaxBody`
+         of the server's locations, the created `/` included (§9, B). Write
+         that meaning in the comment on the field in ServerConfig.hpp,
+         since Ivan's code reads it.
       7. After the end of the file: reject a file with zero servers.
+      8. Decide open decision 4 (same `server_name` on the same listen),
+         which is a check across servers, so it also runs after the file.
 - [ ] **9. `parseFile`.** Read with `std::ifstream` (throw ConfigError if it
       can't be opened), then call `parseString`.
 - [ ] **10. Test corpus.**
@@ -321,10 +343,31 @@ test suite (§12).
         `main.cpp` and `dumpConfig` work.
         `invalid_syntax.conf` is a known issue in the suite until §5.6 is
         fixed.
+- [ ] **When the parser is done:** ask Claude to update the ConfigParser
+      Pipeline page to the finished code (§13).
 
-**Next up:** Step 6 (the remaining server-level directives). Remove the
-`[[maybe_unused]]` markers as each value parser gets called. Ravi asked to go through the parser
-at the same pace as the C++ lessons.
+**Next up:** finish step 7. `parseLocationDirective` is written and the
+`internal` fix is in (2026-10-21); 13 tests still fail, from these:
+- the nested `location` error uses the wrong message ("location included: no
+  nested blocks" was a note in the TODO): add `location` to the "not allowed
+  inside a location" branch and delete its own branch (2).
+- `cgi` doesn't check that the extension starts with `.` (1).
+- not written yet: the duplicate check in `parseLocation` (2), the
+  location-only check in `parseServerDirective` (4), the size-0 check in
+  `parseSize` (4).
+Then cleanup: remove the TODO blocks and the `[[maybe_unused]]` markers, the
+`//not sure ??` on `return` (300-399 is right), and the stale "open decision 7"
+comment in `parseServerDirective`. Ravi asked to go through the parser at the
+same pace as the C++ lessons.
+
+**Tell Ivan** (collected from the sections above):
+- §9 / decision 3 (B): his HTTP parser compares `Content-Length` with
+  `server.clientMaxBody` before reading the body (413 if over). The router
+  does the exact per-location check.
+- Decision 2: `listen` hosts aren't validated; his socket code resolves them
+  with `getaddrinfo`.
+- §5.1: the shared Makefile doesn't compile `ServerConfig.cpp` or `ConfigDump.cpp`.
+- §5.5: the include guard in `includes/Router.hpp:1` is broken.
 
 ## 11. Open decisions
 
@@ -334,18 +377,22 @@ at the same pace as the C++ lessons.
    validate it; the socket code resolves it with `getaddrinfo`, so
    `localhost` works. A bad host is only caught at bind time, without a line
    number. Tell Ivan.
-3. The meaning of `ServerConfig::clientMaxBody` (§9). Agree with Ivan.
+3. ~~The meaning of `ServerConfig::clientMaxBody`?~~ **Decided 2026-10-21:
+   B**, the largest limit of the server's locations (§9). Tell Ivan.
 4. The same `server_name` on the same listen in two servers: error, or first
    one wins?
 5. ~~Can `HEAD` be written explicitly in `methods`?~~ **Decided
    2026-10-14: yes, accepted.** `methods GET HEAD;` is the same as
    `methods GET;`.
-6. Ivan's `HttpMethod` enum (`Get, Post, Delete`, no Head) vs the config's
-   `std::set<std::string>` with "HEAD". Keep the strings in config, or switch
-   to the enum? Decide with Ivan.
-7. `client_max_body_size 0;` parses as 0. In nginx, 0 means "no limit";
-   read literally, it would refuse every body. Accept it with a meaning,
-   or reject it? Decide in step 6.
+6. ~~Ivan's `HttpMethod` enum vs a string set in config?~~ **Settled
+   2026-10-01:** Ivan added `Head` and `Unknown` to the enum, and the config
+   switched to `std::set<HttpMethod>` the same day. `parseMethods` never
+   produces `Unknown`: an unknown method is a ConfigError.
+7. ~~What does `client_max_body_size 0;` mean?~~ **Decided 2026-10-21:
+   rejected**, with `size 0 is not allowed in '0'` (also `0k`, `0M`...). The
+   check goes in `parseSize`, so the server and location levels both get it.
+   nginx reads 0 as "no limit", read literally it refuses every body, and
+   the architecture doc says to reject ambiguous values at startup.
 
 ## 12. Test suite: `tests/ConfigParser/`
 
@@ -363,8 +410,8 @@ make test ARGS="-f listen -x"         # ./tester options; ./tester --help lists 
 ```
 
 - **Sections so far:** 1 `error`, 2 `tokenizer`, 3 `cursor`, 4 `skeleton`,
-  5 `values` (204 tests). Steps 6-10 are commented out in `main.cpp`, ready
-  to add.
+  5 `values`, 6 `server`, 7 `locations` (321 tests; 13 fail until step 7 is
+  finished, see "Next up" in §10). Steps 8-10 are commented out in `main.cpp`, ready to add.
 - **How it reaches the internals:** `main.cpp` includes `ConfigParser.cpp`
   itself, through `parser_under_test.hpp`. That's how the tests see `Token`,
   `Cursor` and the `static` helpers. When a function's signature changes,
@@ -384,4 +431,32 @@ make test ARGS="-f listen -x"         # ./tester options; ./tester --help lists 
 - Some tests pin behaviour that later steps will change on purpose, and
   their names say so. For example, an empty file gives 0 servers until
   step 8 rejects it.
+
+## 13. ConfigParser Pipeline page: update it when the parser is done
+
+**Reminder: once the config parser is finished (steps 7-10), Ravi wants
+this page updated to the finished code.** Ask Claude for it then.
+
+- Page: https://claude.ai/artifact/A7jfoArEgnKW58K7mHokKT (private). Load a
+  .conf (a sample from `conf/`, your own file, or typed in) and step through
+  the parse as a mindmap. The Pipeline view has one block per function; the
+  Call tree view has one node per call. Each block shows the C++ lines that
+  ran, the variables after the step, and the tokens the cursor read.
+- Built from `ConfigParser.cpp` as it was when Ravi asked on 2026-10-21:
+  steps 1-6 and the step 7 scaffold. `parseLocationDirective` is still the
+  placeholder that drops its arguments there; the branches written later
+  that day are not in it.
+- How it works: the page embeds the C++ files and runs a JavaScript copy of
+  the parser that records every call. It finds C++ line numbers by
+  searching the embedded source for snippets (`ANCHORS` in the page's trace
+  engine), so code that only moves keeps working.
+- To update: `Artifact read` the URL. Replace the embedded `ConfigParser.cpp`
+  (and the headers and confs, if they changed). Port the new code to the JS
+  copy: the step 7 branches and checks, step 8's finalize, `parseFile`. Add
+  pipeline blocks for new functions and fix any anchors that no longer match.
+  Then check the copy against the real parser: build a small C++ driver that
+  includes `ConfigParser.cpp` and prints the tokens and the result or the
+  ConfigError for each input. Diff its output with the copy's output on the
+  `conf/` files, the strings in the test sections, and random mutations of
+  both. On 2026-10-21 the two agreed on all 1,140 inputs.
 

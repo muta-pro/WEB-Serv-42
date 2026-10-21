@@ -70,7 +70,7 @@ inline void	testServer(Tester &t)
 	defaults("body", "client_max_body_size 512k;", gives("524288"));
 	defaults("body", "client_max_body_size 1M; client_max_body_size 4M;", gives("4194304"));
 	defaults("body", "client_max_body_size 10X;", fails(1, "unknown size suffix in '10X'"));
-	// TODO: client_max_body_size 0 - open decision 7
+	defaults("body", "client_max_body_size 0;", fails(1, "size 0 is not allowed in '0'"));	// open decision 7
 
 	/* the number of arguments */
 	t.rejects("root without a path", "server { root; }", 1, "invalid number of arguments in 'root'");

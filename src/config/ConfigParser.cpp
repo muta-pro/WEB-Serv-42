@@ -2,6 +2,7 @@
 #include <cctype>
 #include <iostream> //for TESTING
 #include <limits>
+#include <optional>
 
 struct  Token
 {
@@ -127,8 +128,6 @@ std::vector<Token>	Cursor::readArgs(const Token &name, size_t min, size_t max)
 /*
 STEP 5 - value parsers. each takes the Token, not just its text, so an
 error points at the line of the bad argument.
-[[maybe_unused]] stops -Werror failing on a static function nobody calls
-yet. remove it once step 6 calls the function.
 */
 
 /*
@@ -186,7 +185,7 @@ client_max_body_size: digits with an optional k/K, m/M or g/G suffix, in
 binary units (1k = 1024). the max given to parseNumber leaves room for the
 multiply, so "99999999999G" is refused instead of wrapping around.
 */
-[[maybe_unused]] static size_t	parseSize(const Token &arg)
+static size_t	parseSize(const Token &arg)
 {
 	std::string	digits = arg.text;
 	size_t		multiplier = 1;
@@ -207,7 +206,7 @@ multiply, so "99999999999G" is refused instead of wrapping around.
 	return (parseNumber(arg, digits, std::numeric_limits<size_t>::max() / multiplier) * multiplier);
 }
 
-[[maybe_unused]] static bool	parseOnOff(const Token &arg)
+static bool	parseOnOff(const Token &arg)
 {
 	if (arg.text == "on" || arg.text == "ON")
 		return (true);
@@ -220,7 +219,7 @@ multiply, so "99999999999G" is refused instead of wrapping around.
 error_page takes 300-599, return takes 300-399. a status code is always
 three digits, so 999 is ceiling enough for parseNumber.
 */
-[[maybe_unused]] static int	parseStatusCode(const Token &arg, int lo, int hi)
+static int	parseStatusCode(const Token &arg, int lo, int hi)
 {
 	int	code = static_cast<int>(parseNumber(arg, arg.text, 999));
 
@@ -236,7 +235,7 @@ methods GET POST DELETE; -> that set. methods are case-sensitive
 decision 5); grantImplicitHead() also adds it wherever GET is, in step 8.
 a repeated method is harmless: a set holds each value once.
 */
-[[maybe_unused]] static std::set<HttpMethod>	parseMethods(const std::vector<Token> &args)
+static std::set<HttpMethod>	parseMethods(const std::vector<Token> &args)
 {
 	std::set<HttpMethod>	methods;
 
@@ -259,24 +258,140 @@ a repeated method is harmless: a set holds each value once.
 }
 
 /*
-STEP 4 PLACEHOLDER. step 7 replaces this with the real location parser
-(RawLocation). for now it only walks over the block, so a server that
-contains locations can be parsed end to end.
-called with the cursor just past the "location" keyword.
+STEP 7 - one location block as the file wrote it, before the server's
+defaults are known (handover §8). the five inheritable fields are
+std::optional: empty means "this block didn't say", and only those get
+the server's value in step 8 (value_or). `autoindex off;` is NOT empty -
+it holds false, and that false must survive.
+own holds what only a location has: path, cgi, upload_store, return,
+internal. own's root/index/autoindex/allowedMethods/clientMaxBody stay
+untouched here; step 8 fills them from the optionals.
 */
-static void	parseLocation(Cursor &cur)
+struct RawLocation
 {
-	const Token &path = cur.next();
+	std::optional<std::string>			root;
+	std::optional<std::string>			index;
+	std::optional<bool>					autoindex;
+	std::optional<size_t>				clientMaxBody;
+	std::optional<std::set<HttpMethod>>	methods;
+	LocationConfig						own;
+};
+
+/*
+STEP 7 - one simple directive inside a location. called with the cursor
+just past the directive's name; reads its arguments and the ';'.
+	root, index, autoindex, methods,    -> the optionals in raw
+	client_max_body_size
+	upload_store, cgi, return, internal -> raw.own
+a repeated directive: the last one wins, as at server level.
+*/
+static void	parseLocationDirective(Cursor &cur, const Token &name, [[maybe_unused]] RawLocation &raw)
+{
+	/*
+	TODO step 7 - replace the placeholder below with one branch each, in
+	the same if / else if shape as parseServerDirective:
+	- root, index, autoindex,     same argument counts and value parsers as
+	  methods,                    at server level, but into raw.root,
+	  client_max_body_size        raw.index, ... instead of defaults
+	- upload_store PATH           -> raw.own.uploadStore
+	- cgi EXT INTERPRETER         exactly 2 -> raw.own.cgiExt, raw.own.cgiPath.
+	                              EXT must start with '.':
+	                              "expected an extension starting with '.', not 'py'"
+	- return CODE TARGET          exactly 2 -> raw.own.redirectCode (300-399),
+	                              raw.own.redirect
+	- internal                    no arguments -> raw.own.internalOnly
+	- listen, server_name,        "directive 'listen' is not allowed inside a location"
+	  error_page, location        (location included: no nested blocks)
+	- anything else               "unknown directive '...'", as at server level
+	then drop [[maybe_unused]] from raw.
+	*/
+	if (name.text == "root")
+	{
+		std::vector<Token> args = cur.readArgs(name, 1, 1);
+		raw.root = args[0].text;
+	}
+	else if (name.text == "index")
+	{
+		std::vector<Token> args = cur.readArgs(name, 1, 1);
+		raw.index = args[0].text;
+	}
+	else if (name.text == "autoindex")
+	{
+		std::vector<Token> args = cur.readArgs(name, 1, 1);
+		raw.autoindex = parseOnOff(args[0]);
+	}
+	else if (name.text == "methods")
+	{
+		std::vector<Token> args = cur.readArgs(name, 1, Cursor::NO_MAX);
+		raw.methods = parseMethods(args);
+	}
+	else if (name.text == "client_max_body_size")
+	{
+		std::vector<Token> args = cur.readArgs(name, 1, 1);
+		raw.clientMaxBody = parseSize(args[0]);
+	}
+	else if (name.text == "upload_store")
+	{
+		std::vector<Token> args = cur.readArgs(name, 1, 1);
+		raw.own.uploadStore = args[0].text;
+	}
+	else if (name.text == "cgi")
+	{
+		std::vector<Token> args = cur.readArgs(name, 2, 2);
+		raw.own.cgiExt = args[0].text;
+		raw.own.cgiPath = args[1].text;
+	}
+	else if (name.text == "return")
+	{
+		std::vector<Token> args = cur.readArgs(name, 2, 2);
+		raw.own.redirectCode = parseStatusCode(args[0], 300, 399); //not sure ??
+		raw.own.redirect = args[1].text;
+	}
+	else if (name.text == "internal")
+	{
+		std::vector<Token> args = cur.readArgs(name, 0, 0);
+		raw.own.internalOnly = true;
+	}
+	else if (name.text == "listen" || name.text == "server_name" || name.text == "error_page")
+	{
+		throw ConfigError(name.line , "directive '" + name.text + "' is not allowed inside a location");
+	}
+	else if (name.text == "location")
+	{
+		throw ConfigError(name.line , "location included: no nested blocks");
+	}
+	else
+	{
+		throw ConfigError(name.line , "unknown directive '" + name.text + "'");
+	}
+}
+
+/*
+STEP 7 - one location block. called with the cursor just past the
+"location" keyword, returns with it just past the block's '}'.
+siblings: the locations this server already has, for the duplicate check.
+*/
+static RawLocation	parseLocation(Cursor &cur, [[maybe_unused]] const std::vector<RawLocation> &siblings)
+{
+	RawLocation	raw;
+	const Token	&path = cur.next();
 
 	if (path.text[0] != '/')
 		throw ConfigError(path.line, "expected a path after 'location'");
+	/*
+	TODO step 7 - a path one of the siblings already has:
+		"duplicate location '/upload/'", on the line of this path token.
+	then drop [[maybe_unused]] from siblings.
+	*/
+	raw.own.path = path.text;
 	cur.expect("{");
 	while (cur.peek().text != "}")
 	{
 		const Token &name = cur.next();
-		cur.readArgs(name, 0, Cursor::NO_MAX);	// thrown away until step 7
+		parseLocationDirective(cur, name, raw);
 	}
 	cur.next();	// the '}'
+	return (raw);
 }
 
 /*
@@ -290,7 +405,7 @@ kept out of parseServer so the step 6 tests can call it and read the
 defaults back - nothing else can see them until step 8.
 */
 static void	parseServerDirective(Cursor &cur, const Token &name, ServerConfig &server,
-	[[maybe_unused]] ServerDefaults &defaults)
+	ServerDefaults &defaults)
 {
 	if (name.text == "listen")
 	{
@@ -305,43 +420,49 @@ static void	parseServerDirective(Cursor &cur, const Token &name, ServerConfig &s
 	}
 	else if (name.text == "error_page")
 	{
+		/*
+		every arg but the last is a code (300-599), the last is the URI
+		(guarantee 5). errorPages[code] inserts or overwrites, so a code
+		bound twice keeps its last URI.
+		*/
 		std::vector<Token> args = cur.readArgs(name, 2, Cursor::NO_MAX);
+		const Token &uri = args.back();
+
+		if (uri.text[0] != '/')
+			throw ConfigError(uri.line, "expected a URI starting with '/', not '" + uri.text + "'");
 		for (size_t i = 0; i < args.size() - 1; i++)
-			server.errorPages<parseStatusCode(args[i], ??, ??),args.back().text>;
-		if (args.back().text[0] != '/')
-			throw ConfigError(args.back().line, "expected a URI starting with '/', not 'X'");
+			server.errorPages[parseStatusCode(args[i], 300, 599)] = uri.text;
 	}
 	else if (name.text == "client_max_body_size")
 	{
+		// what 0 means: open decision 7. ServerConfig::clientMaxBody is step 8 (§9)
 		std::vector<Token> args = cur.readArgs(name, 1, 1);
-		server.clientMaxBody = args[0];
+		defaults.clientMaxBody = parseSize(args[0]);
 	}
 	else if (name.text == "root")
 	{
-
+		std::vector<Token> args = cur.readArgs(name, 1, 1);
+		defaults.root = args[0].text;
 	}
 	else if (name.text == "index")
 	{
-
+		std::vector<Token> args = cur.readArgs(name, 1, 1);
+		defaults.index = args[0].text;
 	}
 	else if (name.text == "autoindex")
 	{
 		std::vector<Token> args = cur.readArgs(name, 1, 1);
-		parseOnOff(args[0]);
+		defaults.autoindex = parseOnOff(args[0]);
+	}
+	else if (name.text == "methods")
+	{
+		// assigning replaces the whole set: a second methods line doesn't add to the first
+		std::vector<Token> args = cur.readArgs(name, 1, Cursor::NO_MAX);
+		defaults.allowedMethods = parseMethods(args);
 	}
 	/*
-	TODO step 6 - one branch each:
-	- error_page CODE... URI      2 args or more. every arg but the last is
-	                              a code, 300-599; the last is the URI and
-	                              must start with '/' (guarantee 5)
-	- client_max_body_size SIZE   -> defaults. what 0 means: open decision 7.
-	                              ServerConfig::clientMaxBody is step 8 (§9)
-	- root PATH, index FILE       -> defaults
-	- autoindex on|off            -> defaults
-	- methods M...                -> defaults. a second methods line
-	                              replaces the first, it doesn't add to it
-	then drop [[maybe_unused]] from defaults and from each value parser
-	you now call.
+	TODO step 7 - upload_store, cgi, return, internal belong to a location only:
+		"directive 'cgi' is only allowed inside a location"
 	*/
 	else
 		throw ConfigError(name.line, "unknown directive '" + name.text + "'");
@@ -354,15 +475,16 @@ everything else is a simple directive.
 */
 static ServerConfig	parseServer(Cursor &cur)
 {
-	ServerConfig	server;
-	ServerDefaults	defaults;	// step 8 copies these into the locations, at the '}'
+	ServerConfig				server;
+	ServerDefaults				defaults;	// step 8 copies these into the locations, at the '}'
+	std::vector<RawLocation>	locations;	// step 8 turns these into server.locations
 
 	while (cur.peek().text != "}")
 	{
 		const Token &name = cur.next();
 
 		if (name.text == "location")
-			parseLocation(cur);
+			locations.push_back(parseLocation(cur, locations));
 		else
 			parseServerDirective(cur, name, server, defaults);
 	}
