@@ -145,8 +145,8 @@ inline void	testLocations(Tester &t)
 		"duplicate location '/a/'");
 	t.rejects("a duplicate is reported on its own line",
 		"server {\n\tlocation / { }\n\tlocation /a/ { }\n\tlocation / { }\n}", 4, "duplicate location '/'");
-	t.parses("/a and /a/ are different paths", "server { location /a { } location /a/ { } }", {"servers = 1"});
-	t.parses("the same path in two servers is fine", "server { location / { } } server { location / { } }",
+	t.parses("/a and /a/ are different paths", "server { listen 80; location /a { } location /a/ { } }", {"servers = 1"});
+	t.parses("the same path in two servers is fine", "server { listen 80; location / { } } server { listen 81; location / { } }",
 		{"servers = 2"});
 
 	/* through parseString */

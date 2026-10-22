@@ -91,19 +91,19 @@ inline void	testServer(Tester &t)
 		"invalid number of arguments in 'error_page'");
 
 	/* error_page: codes 300-599, then one URI */
-	t.parses("error_page binds one code", "server { error_page 404 /404.html; }",
+	t.parses("error_page binds one code", "server { listen 80; error_page 404 /404.html; }",
 		{"s0 errors = 404=/404.html"});
-	t.parses("error_page binds several codes at once", "server { error_page 500 502 503 504 /50x.html; }",
+	t.parses("error_page binds several codes at once", "server { listen 80; error_page 500 502 503 504 /50x.html; }",
 		{"s0 errors = 500=/50x.html 502=/50x.html 503=/50x.html 504=/50x.html"});
-	t.parses("error_page lines add up", "server {\n\terror_page 500 /50x.html;\n\terror_page 404 /404.html;\n}",
+	t.parses("error_page lines add up", "server {\n\tlisten 80;\n\terror_page 500 /50x.html;\n\terror_page 404 /404.html;\n}",
 		{"s0 errors = 404=/404.html 500=/50x.html"});
-	t.parses("a code bound twice: the last one wins", "server { error_page 404 /a.html; error_page 404 /b.html; }",
+	t.parses("a code bound twice: the last one wins", "server { listen 80; error_page 404 /a.html; error_page 404 /b.html; }",
 		{"s0 errors = 404=/b.html"});
-	t.parses("one code of a group rebound", "server { error_page 500 502 /50x.html; error_page 502 /502.html; }",
+	t.parses("one code of a group rebound", "server { listen 80; error_page 500 502 /50x.html; error_page 502 /502.html; }",
 		{"s0 errors = 500=/50x.html 502=/502.html"});
-	t.parses("error_page codes 300 and 599 are the limits", "server { error_page 300 599 /edge.html; }",
+	t.parses("error_page codes 300 and 599 are the limits", "server { listen 80; error_page 300 599 /edge.html; }",
 		{"s0 errors = 300=/edge.html 599=/edge.html"});
-	t.parses("the URI may be just '/'", "server { error_page 404 /; }", {"s0 errors = 404=/"});
+	t.parses("the URI may be just '/'", "server { listen 80; error_page 404 /; }", {"s0 errors = 404=/"});
 	t.parses("no error_page: no errors", "server { listen 80; }", {"s0 errors = (none)"});
 	t.rejects("an error_page code below 300", "server { error_page 200 /ok.html; }", 1,
 		"status code '200' is not between 300 and 599");
@@ -127,10 +127,10 @@ inline void	testServer(Tester &t)
 		"server {\n\tlisten 80;\n\tserver_name a.test;\n\tclient_max_body_size 1M;\n\troot ./www/html;\n"
 		"\tindex index.html;\n\tautoindex off;\n\tmethods GET;\n\terror_page 404 /404.html;\n\tlocation / { }\n}",
 		{"servers = 1", "s0 listen = 0.0.0.0:80", "s0 errors = 404=/404.html"});
-	t.parses("server-level directives after a location", "server { location / { } root ./late; error_page 404 /x; }",
+	t.parses("server-level directives after a location", "server { listen 80; location / { } root ./late; error_page 404 /x; }",
 		{"servers = 1", "s0 errors = 404=/x"});
-	t.parses("client_max_body_size leaves s0 body alone until step 8 (§9)", "server { client_max_body_size 10M; }",
-		{"s0 body = 1048576"});
+	t.parses("client_max_body_size reaches s0 body through the / location (step 8, §9)",
+		"server { listen 80; client_max_body_size 10M; }", {"s0 body = 10485760"});
 	t.rejects("a bad value is reported on its own line", "server {\n\tlisten 80;\n\tautoindex yes;\n}", 3,
 		"expected 'on' or 'off', not 'yes'");
 	t.rejects("a missing ';' after a server-level directive", "server { root ./www }", 1, "expected ';' before '}'");

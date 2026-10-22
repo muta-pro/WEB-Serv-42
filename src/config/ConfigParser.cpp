@@ -3,6 +3,7 @@
 #include <iostream> //for TESTING
 #include <limits>
 #include <optional>
+#include <utility>
 
 struct  Token
 {
@@ -203,7 +204,10 @@ static size_t	parseSize(const Token &arg)
 			throw ConfigError(arg.line, "unknown size suffix in '" + arg.text + "'");
 		digits.pop_back();
 	}
-	return (parseNumber(arg, digits, std::numeric_limits<size_t>::max() / multiplier) * multiplier);
+	size_t size = parseNumber(arg, digits, std::numeric_limits<size_t>::max() / multiplier) * multiplier;
+	if (size == 0)
+		throw ConfigError(arg.line, "size 0 is not allowed in '" + arg.text + "'");
+	return (size);
 }
 
 static bool	parseOnOff(const Token &arg)
@@ -283,28 +287,12 @@ just past the directive's name; reads its arguments and the ';'.
 	root, index, autoindex, methods,    -> the optionals in raw
 	client_max_body_size
 	upload_store, cgi, return, internal -> raw.own
+	listen, server_name, error_page,    -> refused: server level only
+	location                               (no nested blocks)
 a repeated directive: the last one wins, as at server level.
 */
-static void	parseLocationDirective(Cursor &cur, const Token &name, [[maybe_unused]] RawLocation &raw)
+static void	parseLocationDirective(Cursor &cur, const Token &name, RawLocation &raw)
 {
-	/*
-	TODO step 7 - replace the placeholder below with one branch each, in
-	the same if / else if shape as parseServerDirective:
-	- root, index, autoindex,     same argument counts and value parsers as
-	  methods,                    at server level, but into raw.root,
-	  client_max_body_size        raw.index, ... instead of defaults
-	- upload_store PATH           -> raw.own.uploadStore
-	- cgi EXT INTERPRETER         exactly 2 -> raw.own.cgiExt, raw.own.cgiPath.
-	                              EXT must start with '.':
-	                              "expected an extension starting with '.', not 'py'"
-	- return CODE TARGET          exactly 2 -> raw.own.redirectCode (300-399),
-	                              raw.own.redirect
-	- internal                    no arguments -> raw.own.internalOnly
-	- listen, server_name,        "directive 'listen' is not allowed inside a location"
-	  error_page, location        (location included: no nested blocks)
-	- anything else               "unknown directive '...'", as at server level
-	then drop [[maybe_unused]] from raw.
-	*/
 	if (name.text == "root")
 	{
 		std::vector<Token> args = cur.readArgs(name, 1, 1);
@@ -338,27 +326,25 @@ static void	parseLocationDirective(Cursor &cur, const Token &name, [[maybe_unuse
 	else if (name.text == "cgi")
 	{
 		std::vector<Token> args = cur.readArgs(name, 2, 2);
+		if (args[0].text[0] != '.')
+			throw ConfigError(args[0].line , "expected an extension starting with '.', not '" + args[0].text + "'");
 		raw.own.cgiExt = args[0].text;
 		raw.own.cgiPath = args[1].text;
 	}
 	else if (name.text == "return")
 	{
 		std::vector<Token> args = cur.readArgs(name, 2, 2);
-		raw.own.redirectCode = parseStatusCode(args[0], 300, 399); //not sure ??
+		raw.own.redirectCode = parseStatusCode(args[0], 300, 399);
 		raw.own.redirect = args[1].text;
 	}
 	else if (name.text == "internal")
 	{
-		std::vector<Token> args = cur.readArgs(name, 0, 0);
+		cur.readArgs(name, 0, 0);	// only the ';'
 		raw.own.internalOnly = true;
 	}
-	else if (name.text == "listen" || name.text == "server_name" || name.text == "error_page")
+	else if (name.text == "listen" || name.text == "server_name" || name.text == "error_page" || name.text == "location")
 	{
 		throw ConfigError(name.line , "directive '" + name.text + "' is not allowed inside a location");
-	}
-	else if (name.text == "location")
-	{
-		throw ConfigError(name.line , "location included: no nested blocks");
 	}
 	else
 	{
@@ -371,18 +357,18 @@ STEP 7 - one location block. called with the cursor just past the
 "location" keyword, returns with it just past the block's '}'.
 siblings: the locations this server already has, for the duplicate check.
 */
-static RawLocation	parseLocation(Cursor &cur, [[maybe_unused]] const std::vector<RawLocation> &siblings)
+static RawLocation	parseLocation(Cursor &cur, const std::vector<RawLocation> &siblings)
 {
 	RawLocation	raw;
 	const Token	&path = cur.next();
 
 	if (path.text[0] != '/')
 		throw ConfigError(path.line, "expected a path after 'location'");
-	/*
-	TODO step 7 - a path one of the siblings already has:
-		"duplicate location '/upload/'", on the line of this path token.
-	then drop [[maybe_unused]] from siblings.
-	*/
+	for (size_t i = 0; i < siblings.size(); i++)
+	{
+		if (siblings[i].own.path == path.text)
+			throw ConfigError(path.line, "duplicate location '" + path.text + "'");
+	}
 	raw.own.path = path.text;
 	cur.expect("{");
 	while (cur.peek().text != "}")
@@ -402,7 +388,7 @@ cursor just past the directive's name; reads its arguments and the ';'.
 	client_max_body_size                   into the locations (step 8)
 a repeated directive: the last one wins.
 kept out of parseServer so the step 6 tests can call it and read the
-defaults back - nothing else can see them until step 8.
+defaults back - nothing else sees them before finalizeServer.
 */
 static void	parseServerDirective(Cursor &cur, const Token &name, ServerConfig &server,
 	ServerDefaults &defaults)
@@ -435,7 +421,7 @@ static void	parseServerDirective(Cursor &cur, const Token &name, ServerConfig &s
 	}
 	else if (name.text == "client_max_body_size")
 	{
-		// what 0 means: open decision 7. ServerConfig::clientMaxBody is step 8 (§9)
+		// parseSize refuses 0 (decision 7). ServerConfig::clientMaxBody is set in finalizeServer (§9, B)
 		std::vector<Token> args = cur.readArgs(name, 1, 1);
 		defaults.clientMaxBody = parseSize(args[0]);
 	}
@@ -460,24 +446,78 @@ static void	parseServerDirective(Cursor &cur, const Token &name, ServerConfig &s
 		std::vector<Token> args = cur.readArgs(name, 1, Cursor::NO_MAX);
 		defaults.allowedMethods = parseMethods(args);
 	}
-	/*
-	TODO step 7 - upload_store, cgi, return, internal belong to a location only:
-		"directive 'cgi' is only allowed inside a location"
-	*/
+	else if (name.text == "upload_store" || name.text == "cgi" || name.text == "return" || name.text == "internal")
+	{
+		throw ConfigError(name.line , "directive '" + name.text + "' is only allowed inside a location");
+	}
 	else
 		throw ConfigError(name.line, "unknown directive '" + name.text + "'");
+}
+
+/*
+STEP 8 - one location, final. starts from raw.own (path, cgi, upload_store,
+return, internal), then gives each inheritable field the block's own value
+if it had one, the server's default if not:
+	loc.root = raw.root.value_or(defaults.root);
+guarantee 6 (no empty root) needs no check here: a token is never empty
+and readArgs wants one argument, so `root ;` is already an error.
+*/
+static LocationConfig	finalizeLocation(const RawLocation &raw,
+	const ServerDefaults &defaults)
+{
+	LocationConfig	loc = raw.own;
+
+	loc.root = raw.root.value_or(defaults.root);
+	loc.index = raw.index.value_or(defaults.index);
+	loc.autoindex = raw.autoindex.value_or(defaults.autoindex);
+	loc.clientMaxBody = raw.clientMaxBody.value_or(defaults.clientMaxBody);
+	loc.allowedMethods = raw.methods.value_or(defaults.allowedMethods);
+	loc.grantImplicitHead();
+	return (loc);
+}
+
+/*
+STEP 8 - at the server's '}'. the defaults are final now, so the
+RawLocations can become the server's LocationConfigs. line is the line of
+the `server` keyword, for errors about the block as a whole.
+*/
+static void	finalizeServer(ServerConfig &server, const ServerDefaults &defaults,
+	const std::vector<RawLocation> &locations, size_t line)
+{
+	if (server.listens.empty())
+		throw ConfigError(line, "server has no 'listen'");
+	bool hasSlash = false;
+	for (size_t i = 0; i < locations.size(); i++)
+	{
+		if (locations[i].own.path == "/")
+			hasSlash = true;
+		server.locations.push_back(finalizeLocation(locations[i], defaults));
+	}
+	if (!hasSlash)
+	{
+		RawLocation slash;
+		slash.own.path = "/";
+		server.locations.push_back(finalizeLocation(slash, defaults));
+	}
+	server.clientMaxBody = 0;
+	for (size_t i = 0; i < server.locations.size(); i++)
+	{
+		if (server.locations[i].clientMaxBody > server.clientMaxBody)
+			server.clientMaxBody = server.locations[i].clientMaxBody;
+	}
 }
 
 /*
 one server block. called with the cursor just past "server {", returns
 with the cursor just past its '}'. location is the only block directive;
 everything else is a simple directive.
+line: the line of the `server` keyword.
 */
-static ServerConfig	parseServer(Cursor &cur)
+static ServerConfig	parseServer(Cursor &cur, size_t line)
 {
 	ServerConfig				server;
-	ServerDefaults				defaults;	// step 8 copies these into the locations, at the '}'
-	std::vector<RawLocation>	locations;	// step 8 turns these into server.locations
+	ServerDefaults				defaults;	// copied into the locations by finalizeServer
+	std::vector<RawLocation>	locations;	// become server.locations in finalizeServer
 
 	while (cur.peek().text != "}")
 	{
@@ -489,7 +529,55 @@ static ServerConfig	parseServer(Cursor &cur)
 			parseServerDirective(cur, name, server, defaults);
 	}
 	cur.next();
+	finalizeServer(server, defaults, locations, line);
 	return (server);
+}
+
+static std::string lowercase_name(std::string text)
+{
+	for (size_t i = 0; i < text.length(); i++)
+	{
+		text[i] = std::tolower(static_cast<unsigned char>(text[i]));
+	}
+	return (text);
+}
+/*
+STEP 8 - open decision 4. two servers that share a host:port can't share a
+name: the first one would win every request for it, so the second could
+never be reached by that name.
+claimed holds every {listen, name} the earlier servers took, names in
+lowercase: hosts compare case-insensitively (see matchesHost).
+a std::set and not a loop over the earlier servers: with the 20,000-server
+stress test, that loop would be 200 million comparisons. Listen has an
+operator< so it can be part of a set key.
+*/
+static void	claimNames(const ServerConfig &server,
+	std::set<std::pair<Listen, std::string>> &claimed, size_t line)
+{
+	for (size_t i = 0; i < server.listens.size(); i++)
+	{
+		for (size_t j = 0; j < server.serverNames.size(); j++)
+		{
+			const Listen					&listen = server.listens[i];
+			const std::string				&name = server.serverNames[j];
+			std::pair<Listen, std::string>	key = {listen, lowercase_name(name)};
+
+			if (claimed.count(key) == 1)
+				throw ConfigError(line, "conflicting server_name '" + name + "' on "
+				+ listen.host + ":" + std::to_string(listen.port));
+		}
+	}
+	for (size_t i = 0; i < server.listens.size(); i++)
+	{
+		for (size_t j = 0; j < server.serverNames.size(); j++)
+		{
+			const Listen					&listen = server.listens[i];
+			const std::string				&name = server.serverNames[j];
+			std::pair<Listen, std::string>	key = {listen, lowercase_name(name)};
+
+			claimed.insert(key);
+		}
+	}
 }
 
 /*
@@ -497,9 +585,10 @@ the top level holds server blocks and nothing else.
 */
 std::vector<ServerConfig>	ConfigParser::parseString(const std::string &text)
 {
-	std::vector<Token>			tokens = tokenize(text);
-	Cursor						cur{tokens, 0};
-	std::vector<ServerConfig>	servers;
+	std::vector<Token>							tokens = tokenize(text);
+	Cursor										cur{tokens, 0};
+	std::vector<ServerConfig>					servers;
+	std::set<std::pair<Listen, std::string>>	claimed;	// see claimNames
 
 	while (!cur.atEnd())
 	{
@@ -510,7 +599,10 @@ std::vector<ServerConfig>	ConfigParser::parseString(const std::string &text)
 		if (t.text != "server")
 			throw ConfigError(t.line, "directive '" + t.text + "' is outside any block");
 		cur.expect("{");
-		servers.push_back(parseServer(cur));
+		servers.push_back(parseServer(cur, t.line));
+		claimNames(servers.back(), claimed, t.line);
 	}
+	if (servers.empty())
+		throw ConfigError(1, "no server block");
 	return (servers);
 }

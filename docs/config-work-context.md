@@ -6,7 +6,7 @@
 > truth for code. If anything here disagrees with the code, trust the code and
 > say so.
 
-Last updated: 2026-10-21 · Branch: `config`
+Last updated: 2026-10-22 · Branch: `config`
 
 ---
 
@@ -112,9 +112,10 @@ Ivan's recent changes (on `feature/phase-0`, 2026-09-22 to 09-28):
 
 ## 5. Problems found in the code review
 
-1. **The Makefile doesn't compile `config/ServerConfig.cpp`** (or the new
-   `config/ConfigDump.cpp`). Ravi will fix this when it's time to test; tell
-   Ivan, since the Makefile is shared.
+1. **The Makefile doesn't compile `config/ConfigDump.cpp`.** (It does build
+   `ConfigParser.cpp` and `ServerConfig.cpp` since Ivan's 2026-10-01 commit.)
+   Add it when `dumpConfig` is implemented; tell Ivan, since the Makefile is
+   shared.
 2. **Inheritance can't be applied line by line.** `root` may appear *after* a
    `location` block in the same server and must still apply to it. Solution
    in §8.
@@ -310,7 +311,7 @@ test suite (§12).
       - `client_max_body_size`
       - root/index/autoindex/methods, which go into ServerDefaults
       - Last one wins when a directive is duplicated.
-- [ ] **7. Location blocks** (into a RawLocation, see §8). Reject:
+- [x] **7. Location blocks** (into a RawLocation, see §8). Reject:
       - a nested `location`
       - server-only directives inside a location
       - location-only directives at server level
@@ -319,19 +320,26 @@ test suite (§12).
       `internal;` takes no arguments; `cgi` takes exactly two (extension,
       interpreter). The exact error messages are pinned in
       `tests/ConfigParser/sections/07_locations.hpp`.
-- [ ] **8. Finalize at the server's `}`.**
-      1. Fill in the defaults with `value_or`.
-      2. Create `/` if it's missing.
-      3. Call `grantImplicitHead()` on every location.
-      4. Reject an empty root.
-      5. Handle a missing listen (open decision 1).
-      6. Set `ServerConfig::clientMaxBody` to the largest `clientMaxBody`
-         of the server's locations, the created `/` included (§9, B). Write
-         that meaning in the comment on the field in ServerConfig.hpp,
-         since Ivan's code reads it.
-      7. After the end of the file: reject a file with zero servers.
-      8. Decide open decision 4 (same `server_name` on the same listen),
-         which is a check across servers, so it also runs after the file.
+- [x] **8. Finalize at the server's `}`.** Done 2026-10-22.
+      - `finalizeLocation`: the 5 inheritable fields with `value_or`, then
+        `grantImplicitHead()`.
+      - `finalizeServer`, in order: reject a missing listen (decision 1,
+        "server has no 'listen'" on the `server` keyword's line); finalize
+        every RawLocation in file order; add `/` if missing (at the end);
+        set `ServerConfig::clientMaxBody` to the largest location limit
+        (§9, B).
+      - `claimNames` (decision 4): a `std::set<std::pair<Listen,
+        std::string>>` of lowercase names already claimed; check this
+        server's pairs first, then insert them. A set because a loop over
+        all earlier servers is ~200 million comparisons in the 20,000-server
+        stress test.
+      - `parseString`: reject a file with zero servers ("no server block",
+        line 1).
+      - Empty root (guarantee 6) needs no check: tokens are never empty and
+        `root ;` already fails on the argument count.
+      - The meaning of `clientMaxBody` (§9, B) is written next to the field
+        in ServerConfig.hpp, for Ivan.
+      - Decision 1 meant adding `listen 80;` to 12 older tests that had none.
 - [ ] **9. `parseFile`.** Read with `std::ifstream` (throw ConfigError if it
       can't be opened), then call `parseString`.
 - [ ] **10. Test corpus.**
@@ -346,19 +354,15 @@ test suite (§12).
 - [ ] **When the parser is done:** ask Claude to update the ConfigParser
       Pipeline page to the finished code (§13).
 
-**Next up:** finish step 7. `parseLocationDirective` is written and the
-`internal` fix is in (2026-10-21); 13 tests still fail, from these:
-- the nested `location` error uses the wrong message ("location included: no
-  nested blocks" was a note in the TODO): add `location` to the "not allowed
-  inside a location" branch and delete its own branch (2).
-- `cgi` doesn't check that the extension starts with `.` (1).
-- not written yet: the duplicate check in `parseLocation` (2), the
-  location-only check in `parseServerDirective` (4), the size-0 check in
-  `parseSize` (4).
-Then cleanup: remove the TODO blocks and the `[[maybe_unused]]` markers, the
-`//not sure ??` on `return` (300-399 is right), and the stale "open decision 7"
-comment in `parseServerDirective`. Ravi asked to go through the parser at the
-same pace as the C++ lessons.
+**Next up:** step 9, `parseFile`. Steps 1-8 are done (2026-10-22), and all
+359 tests pass. Claude writes the scaffold and a `file` test section first,
+as before. Still open: decision 8 (§11). Ravi asked to go through the parser
+at the same pace as the C++ lessons.
+
+The visualizer page "ConfigParser Pipeline"
+(https://claude.ai/artifact/A7jfoArEgnKW58K7mHokKT) embeds ConfigParser.cpp
+and a JavaScript copy of the parser that steps through it. When the parser
+changes, update both, so the page matches the code.
 
 **Tell Ivan** (collected from the sections above):
 - §9 / decision 3 (B): his HTTP parser compares `Content-Length` with
@@ -366,12 +370,14 @@ same pace as the C++ lessons.
   does the exact per-location check.
 - Decision 2: `listen` hosts aren't validated; his socket code resolves them
   with `getaddrinfo`.
-- §5.1: the shared Makefile doesn't compile `ServerConfig.cpp` or `ConfigDump.cpp`.
+- §5.1: the shared Makefile doesn't compile `ConfigDump.cpp` yet.
 - §5.5: the include guard in `includes/Router.hpp:1` is broken.
 
 ## 11. Open decisions
 
-1. A server with no `listen`: error, or default to `0.0.0.0:8080`?
+1. ~~A server with no `listen`: error, or default to `0.0.0.0:8080`?~~
+   **Decided 2026-10-22: error**, "server has no 'listen'" on the line
+   of the `server` keyword.
 2. ~~`listen localhost:8080`: accept hostnames, or IP addresses only?~~
    **Decided 2026-10-14: any non-empty host string.** The parser doesn't
    validate it; the socket code resolves it with `getaddrinfo`, so
@@ -379,8 +385,10 @@ same pace as the C++ lessons.
    number. Tell Ivan.
 3. ~~The meaning of `ServerConfig::clientMaxBody`?~~ **Decided 2026-10-21:
    B**, the largest limit of the server's locations (§9). Tell Ivan.
-4. The same `server_name` on the same listen in two servers: error, or first
-   one wins?
+4. ~~The same `server_name` on the same listen in two servers: error, or
+   first one wins?~~ **Decided 2026-10-22: error**, "conflicting server_name
+   'a.test' on 0.0.0.0:80" on the second server's line. Case-insensitive,
+   like `matchesHost`. A server may repeat its own name.
 5. ~~Can `HEAD` be written explicitly in `methods`?~~ **Decided
    2026-10-14: yes, accepted.** `methods GET HEAD;` is the same as
    `methods GET;`.
@@ -393,6 +401,10 @@ same pace as the C++ lessons.
    check goes in `parseSize`, so the server and location levels both get it.
    nginx reads 0 as "no limit", read literally it refuses every body, and
    the architecture doc says to reject ambiguous values at startup.
+8. Two servers **without** a `server_name` on the same listen. Not a name
+   conflict under decision 4, so it's accepted, but the second one can never
+   be reached: it matches no Host, and the first server is the default.
+   nginx warns about it. Reject it too, or leave it?
 
 ## 12. Test suite: `tests/ConfigParser/`
 
@@ -410,8 +422,8 @@ make test ARGS="-f listen -x"         # ./tester options; ./tester --help lists 
 ```
 
 - **Sections so far:** 1 `error`, 2 `tokenizer`, 3 `cursor`, 4 `skeleton`,
-  5 `values`, 6 `server`, 7 `locations` (321 tests; 13 fail until step 7 is
-  finished, see "Next up" in §10). Steps 8-10 are commented out in `main.cpp`, ready to add.
+  5 `values`, 6 `server`, 7 `locations`, 8 `finalize` (359 tests, all
+  passing). Steps 9-10 are commented out in `main.cpp`, ready to add.
 - **How it reaches the internals:** `main.cpp` includes `ConfigParser.cpp`
   itself, through `parser_under_test.hpp`. That's how the tests see `Token`,
   `Cursor` and the `static` helpers. When a function's signature changes,

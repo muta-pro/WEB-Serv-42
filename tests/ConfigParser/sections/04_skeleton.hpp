@@ -39,8 +39,7 @@ inline void	testSkeleton(Tester &t)
 	t.parses("server_name keeps every name, in order",
 		"server {\n\tlisten 8080;\n\tserver_name a.test b.test c.test;\n}",
 		{"s0 names = a.test b.test c.test"});
-	t.parses("an empty server block (step 8 decides about the missing listen)", "server {}",
-		{"servers = 1", "s0 listen = (none)", "s0 names = (none)"});
+	t.rejects("an empty server block has no listen (step 8, decision 1)", "server {}", 1, "server has no 'listen'");
 	t.parses("two servers, in file order",
 		"server {\n\tlisten 80;\n\tserver_name first;\n}\nserver {\n\tlisten 81;\n\tserver_name second;\n}\n",
 		{"servers = 2", "s0 names = first", "s1 names = second"});
@@ -56,10 +55,8 @@ inline void	testSkeleton(Tester &t)
 		{"servers = 1", "s0 listen = 0.0.0.0:80"});
 	t.parses("CRLF line endings", "server {\r\n\tlisten 80;\r\n\tserver_name crlf.test;\r\n}\r\n",
 		{"s0 names = crlf.test"});
-	t.parses("an empty file has no servers (step 8 will reject it)", "",
-		{"servers = 0"});
-	t.parses("only comments: no servers (step 8 will reject it)", "# nothing\n# here\n",
-		{"servers = 0"});
+	t.rejects("an empty file has no servers (step 8 rejects it)", "", 1, "no server block");
+	t.rejects("only comments: no servers (step 8 rejects it)", "# nothing\n# here\n", 1, "no server block");
 
 	/* the top level */
 	t.rejects("a '}' after the last server", "server {\n\tlisten 80;\n}\n}\n", 4, "unexpected '}'");
@@ -69,9 +66,9 @@ inline void	testSkeleton(Tester &t)
 	t.rejects("a location outside a server", "location / {}", 1, "directive 'location' is outside any block");
 	t.rejects("a typo in 'server'", "sever {\n}", 1, "directive 'sever' is outside any block");
 	t.rejects("keywords are case-sensitive", "SERVER {}", 1, "directive 'SERVER' is outside any block");
-	t.rejects("a stray ';' at the top level", "server {}\n;", 2, "directive ';' is outside any block");
+	t.rejects("a stray ';' at the top level", "server { listen 80; }\n;", 2, "directive ';' is outside any block");
 	t.rejects("'server' without '{'", "server listen 80; }", 1, "expected '{' before 'listen'");
-	t.rejects("'server' at the end of the file", "server {}\nserver", 2, "unexpected end of file");
+	t.rejects("'server' at the end of the file", "server { listen 80; }\nserver", 2, "unexpected end of file");
 
 	/* inside a server */
 	t.rejects("a server that is never closed", "server {\n\tlisten 80;\n", 2, "unexpected end of file");
