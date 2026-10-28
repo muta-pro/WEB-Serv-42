@@ -35,13 +35,14 @@ Last updated: 2026-10-28 · Branch: `config`
 - **Don't fix contradictions** between `docs/BASE_LAYER_ARCHITECTURE.md` and
   the code without asking. Ravi wants to understand the doc first. Flag them
   instead.
-- Study pages from the C++ walkthrough (private claude.ai pages):
+- Study pages from the C++ walkthrough (claude.ai pages):
   - Webserv Config Layer: https://claude.ai/artifact/E3esNMLboixvvvF8cCR9Ne
   - Mindmap of all parts: https://claude.ai/artifact/CP1HjycyU2bJNwTaJD6YBq
   - Part 4 (HeaderMap/HttpRequest): https://claude.ai/artifact/YMZuPsKgpEBHAEG46p73oW
   - ConfigParser Pipeline (step through a .conf as a mindmap, linked to the
     C++): https://claude.ai/artifact/A7jfoArEgnKW58K7mHokKT. Matches the
-    parser as of 2026-10-28 (steps 1-9). Update it when the parser changes,
+    finished parser (2026-10-28). Shared as "anyone with the link"; it holds
+    only the repo's own parser source. Update it when the parser changes,
     see §13.
 
 ## 2. Git workflow
@@ -72,8 +73,10 @@ git fetch origin
 git merge origin/main              # conflicts, if any, show up HERE, on Ravi's branch
 ```
 
-When the parser is done, open a PR from `config` into `main`. Before that,
-decide whether this context file should be merged too, or removed first.
+When the parser is done, open a PR from `config` into `main`. **Decided
+2026-10-28: this context file goes into `main` with it**: it is the only
+record of the parser decisions Ivan needs. Until the PR is merged, every
+push to `config` lands in the same PR.
 
 ## 3. Pipeline position
 
@@ -135,15 +138,22 @@ Ivan's recent changes (on `feature/phase-0`, 2026-09-22 to 09-28):
    | CGI mappings per location | several | one |
 
    Don't edit the doc yet.
-5. Not config: `includes/Router.hpp:1` has a broken include guard
-   (`#ifndef ROUTER_HPPROUTER_HPP` but `#define ROUTER_HPP`). Tell its owner.
-6. **`readArgs` reports a missing `;` badly** (known, accepted for now). In
-   `invalid_syntax.conf` the `listen` on line 27 has no `;`, so `readArgs`
-   swallows `server_name broken.test` up to the next `;` and throws
+5. Not config: `includes/Router.hpp:1` had a broken include guard
+   (`#ifndef ROUTER_HPPROUTER_HPP` but `#define ROUTER_HPP`). Fixed on
+   `main` by 2026-10-28.
+6. **`readArgs` reports a missing `;` badly.** In `invalid_syntax.conf` the
+   `listen` on line 27 has no `;`, so `readArgs` swallows
+   `server_name broken.test` up to the next `;` and throws
    `line 27: invalid number of arguments in 'listen'`. The file expects
-   `line 28: expected ';' before 'server_name'`. Possible fix: when there are
-   too many arguments, throw at `args[max]` (the first extra one) with
-   "expected ';' before ...". Not a grading issue, so it's parked.
+   `line 28: expected ';' before 'server_name'`. **Fixed 2026-10-28 by
+   Ravi:** when there are more args than max, compare `args[max]`
+   (the first one too many) with the token before it (`args[max - 1]`, or
+   the directive's name when max is 0). On another line, the `;` was
+   forgotten: throw "expected ';' before '<args[max]>'" on the line of
+   `args[max]`. On the same line (`index a.html b.html;`) it stays
+   "invalid number of arguments". Directives without a maximum
+   (`server_name`) can't tell: the next line just becomes more names, as in
+   nginx.
 
 ## 6. The parser's contract (from ConfigParser.hpp)
 
@@ -355,23 +365,36 @@ test suite (§12).
         from an empty file, which is why the plan uses getline.)
       - Tests: the `file` section (`09_file.hpp`, 15 tests). The suite's
         `parsesFile` / `rejectsFile` now read through `parseFile` too.
-- [ ] **10. Test corpus.**
-      - Split the rejection cases into `conf/invalid/<case>.conf`.
-      - Add a `corpus` section to the suite (§12): `parsesFile` for every
-        valid file, `rejectsFile` with the right line for every invalid one.
-        That replaces the script this step used to plan.
-      - Still to decide: whether to also run `./webserv` on each file once
-        `main.cpp` and `dumpConfig` work.
-        `invalid_syntax.conf` is a known issue in the suite until §5.6 is
-        fixed.
+- [x] **10. Test corpus.** Done 2026-10-28 (Claude; no parser code).
+      - `conf/invalid/` holds 35 files, one per error the parser can throw
+        (every message in `ConfigParser.cpp` except parseFile's "cannot
+        open" / "cannot read", which the `file` section covers). Each says
+        why it's rejected and has a line
+        `# expect: config error, line N: message`, the exact output.
+        A `# <-` comment marks the line the error points at.
+      - The `corpus` section (`10_corpus.hpp`): every `.conf` in `conf/`
+        must parse, every `.conf` in `conf/invalid/` must be rejected with
+        its `# expect:` error. A new file is a new test, with no code
+        change; a file without the `# expect:` line fails.
+      - `invalid_syntax.conf` stays where it is, checked by the skeleton
+        section.
+      - Later, once `main.cpp` works: maybe also run the real `./webserv`
+        on every corpus file and check its exit code and the error it
+        prints. The corpus runs `parseFile` inside the tester, so it never
+        touches `main.cpp`; this would also check main's part (argv,
+        catching the ConfigError, printing it, exiting non-zero).
 - [x] **When the parser is done:** update the ConfigParser Pipeline page
-      to the finished code (§13). Done 2026-10-28, steps 1-9. Update it again
-      if the parser still changes (for example when §5.6 is fixed).
+      to the finished code (§13). Done 2026-10-28, including the §5.6 fix.
+      Update it again if the parser still changes.
 
-**Next up (2026-10-28):** step 10, the test corpus. Steps 1-9 are done
-and all 382 tests pass. Claude writes the scaffold first, as before: the
-`conf/invalid/<case>.conf` files and a `corpus` section. Ravi asked to go
-through the parser at the same pace as the C++ lessons.
+**Next up (2026-10-28):** the parser is finished: steps 1-10 and the §5.6
+fix, 469 tests, all passing, no known issues. The PR from `config` into
+`main` is written; `gh` isn't installed here, so Ravi opens it from
+GitHub's compare page with the prepared title and description. Next:
+`main.cpp` (parse the file from argv, print the ConfigError and exit
+non-zero), `dumpConfig`, adding `ConfigDump.cpp` to the Makefile (tell
+Ivan). Pushed to `config` while the PR is open, those join the same PR.
+Ravi asked to go through the parser at the same pace as the C++ lessons.
 
 The visualizer page "ConfigParser Pipeline"
 (https://claude.ai/artifact/A7jfoArEgnKW58K7mHokKT) embeds ConfigParser.cpp
@@ -385,7 +408,6 @@ changes, update both, so the page matches the code.
 - Decision 2: `listen` hosts aren't validated; his socket code resolves them
   with `getaddrinfo`.
 - §5.1: the shared Makefile doesn't compile `ConfigDump.cpp` yet.
-- §5.5: the include guard in `includes/Router.hpp:1` is broken.
 
 ## 11. Open decisions
 
@@ -441,9 +463,8 @@ make test ARGS="-f listen -x"         # ./tester options; ./tester --help lists 
 ```
 
 - **Sections so far:** 1 `error`, 2 `tokenizer`, 3 `cursor`, 4 `skeleton`,
-  5 `values`, 6 `server`, 7 `locations`, 8 `finalize`, 9 `file` (382
-  tests, all passing). Step 10 is commented out in `main.cpp`, ready to
-  add.
+  5 `values`, 6 `server`, 7 `locations`, 8 `finalize`, 9 `file`,
+  10 `corpus` (469 tests; 7 fail until §5.6 is fixed, see "Next up").
 - **How it reaches the internals:** `main.cpp` includes `ConfigParser.cpp`
   itself, through `parser_under_test.hpp`. That's how the tests see `Token`,
   `Cursor` and the `static` helpers. When a function's signature changes,
@@ -457,24 +478,25 @@ make test ARGS="-f listen -x"         # ./tester options; ./tester --help lists 
   versions `t.parsesFile` / `t.rejectsFile`. The top of `main.cpp`
   explains how to add a test or a section.
 - **Known issues:** `t.known("why")` before a check shows it in yellow and
-  in the summary, but doesn't count it as a failure. §5.6 is in there twice
-  (cursor + `invalid_syntax.conf`). When it passes, the summary says to
-  delete the `known()` line.
+  in the summary, but doesn't count it as a failure. When it passes, the
+  summary says to delete the `known()` line. None are left: the two §5.6
+  ones became normal tests on 2026-10-28.
 - Some tests pin behaviour that later steps will change on purpose, and
   their names say so. For example, an empty file gives 0 servers until
   step 8 rejects it.
 
 ## 13. ConfigParser Pipeline page: keep it in sync with the parser
 
-- Page: https://claude.ai/artifact/A7jfoArEgnKW58K7mHokKT (private). Load a
+- Page: https://claude.ai/artifact/A7jfoArEgnKW58K7mHokKT (anyone with the
+  link can open it). Load a
   .conf (a sample from `conf/`, your own file, or typed in) and step through
   the parse as a mindmap. The Pipeline view has one block per function; the
   Call tree view has one node per call. Each block shows the C++ lines that
   ran, the variables after the step, and the tokens the cursor read.
-- Built from `ConfigParser.cpp` as of 2026-10-28: steps 1-9, the whole
-  parser. It starts at `parseFile` (the browser already has the text, so
-  "cannot open" / "cannot read" can't happen there) and includes
-  `claimDefaults` (decision 8).
+- Built from `ConfigParser.cpp` as of 2026-10-28: the finished parser,
+  with the §5.6 fix in `readArgs`. It starts at `parseFile` (the browser
+  already has the text, so "cannot open" / "cannot read" can't happen
+  there) and includes `claimDefaults` (decision 8).
 - How it works: the page embeds the C++ files and runs a JavaScript copy of
   the parser that records every call. It finds C++ line numbers by
   searching the embedded source for snippets (`ANCHORS` in the page's trace
@@ -487,9 +509,10 @@ make test ARGS="-f listen -x"         # ./tester options; ./tester --help lists 
   function, and fix any anchors that no longer match.
 - Then check the copy against the real parser: run the copy's
   `traceParse` in Node and compare its facts or error with
-  `./tester --facts -` (stdin) on the `conf/` files, the strings in the test
-  sections and random mutations of the confs; then open the page in
-  headless Chrome and step through every sample in both views. On
-  2026-10-28 the two agreed on all 447 inputs (31 of them rejected by
-  decision 8), all 271 anchors were found, and the page ran without a
+  `./tester --facts -` (stdin) on the `conf/` and `conf/invalid/` files,
+  the strings in the test sections, every shipped conf with one `;` left
+  out, and random mutations of the confs; then open the page in headless
+  Chrome and step through every sample in both views. On 2026-10-28 the two
+  agreed on all 551 inputs (66 rejected by decision 8, 32 as a missing `;`
+  before a word), all 275 anchors were found, and the page ran without a
   JavaScript error.

@@ -104,6 +104,5 @@ inline void	testSkeleton(Tester &t)
 		{"servers = 1", "s0 listen = 0.0.0.0:80"});
 
 	/* the shipped broken file */
-	t.known("handover §5.6 - readArgs blames the directive's line when a ';' is missing");
 	t.rejectsFile("conf/invalid_syntax.conf", 28, "expected ';' before 'server_name'");
 }

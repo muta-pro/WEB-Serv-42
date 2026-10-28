@@ -122,6 +122,12 @@ std::vector<Token>	Cursor::readArgs(const Token &name, size_t min, size_t max)
 		args.push_back(t);
 	}
 	next();
+	if (args.size() > max)
+	{
+		const Token &before = (max == 0) ? name : args[max - 1];
+		if (args[max].line != before.line)
+			throw ConfigError(args[max].line, "expected ';' before '" + args[max].text + "'");
+	}
 	if (args.size() < min || args.size() > max)
 		throw ConfigError(name.line, "invalid number of arguments in '" + name.text + "'");
 	return (args);

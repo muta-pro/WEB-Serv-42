@@ -139,7 +139,6 @@ inline void	testCursor(Tester &t)
 		return (tokenLines(cur.readArgs(tokens[0], 1, Cursor::NO_MAX)));
 	});
 	args("too few arguments", "listen ;", 1, 1, fails(1, "invalid number of arguments in 'listen'"));
-	// fixing handover §5.6 changes this one to: expected ';' before '81'
 	args("too many arguments", "listen 80 81 ;", 1, 1, fails(1, "invalid number of arguments in 'listen'"));
 	args("the count error points at the directive's line", "server_name\n\n;", 1, ANY,
 		fails(1, "invalid number of arguments in 'server_name'"));
@@ -148,7 +147,34 @@ inline void	testCursor(Tester &t)
 	args("the brace error is on the brace's line", "listen 80\n}", 1, 1, fails(2, "expected ';' before '}'"));
 	args("end of file before the ';'", "listen 80", 1, 1, fails(1, "unexpected end of file"));
 
-	t.known("handover §5.6 - readArgs blames the directive's line when a ';' is missing");
+	/*
+	handover §5.6 - a missing ';'. readArgs reads on to the next ';', so the
+	next line's directive comes in as extra arguments. when the first extra
+	one is on another line than the argument before it, the ';' was
+	forgotten there.
+	*/
 	args("a missing ';' is reported where the ';' belongs", "listen 0.0.0.0:8080\nserver_name broken.test;", 1, 1,
 		fails(2, "expected ';' before 'server_name'"));
+	args("the error names the first token too many", "root ./www\nindex index.html ;", 1, 1,
+		fails(2, "expected ';' before 'index'"));
+	args("the extra argument on the same line: one too many, not a missing ';'", "index a.html b.html ;", 1, 1,
+		fails(1, "invalid number of arguments in 'index'"));
+	args("compared with the last argument that fits, not with the directive", "listen\n8080\nserver_name a.test ;", 1, 1,
+		fails(3, "expected ';' before 'server_name'"));
+	args("an argument on the next line, one too many after it on that line", "root\n./a ./b ;", 1, 1,
+		fails(1, "invalid number of arguments in 'root'"));
+	args("no arguments allowed: compared with the directive itself", "internal\nroot ./x ;", 0, 0,
+		fails(2, "expected ';' before 'root'"));
+	args("no arguments allowed, one on the same line", "internal on ;", 0, 0,
+		fails(1, "invalid number of arguments in 'internal'"));
+	args("two arguments allowed, the third on the next line", "cgi .py /usr/bin/python3\nroot ./x ;", 2, 2,
+		fails(2, "expected ';' before 'root'"));
+	args("too few arguments over several lines is still a count error", "cgi\n.py\n;", 2, 2,
+		fails(1, "invalid number of arguments in 'cgi'"));
+	/*
+	no maximum, so nothing is ever too many: a missing ';' after
+	server_name takes the next line as more names. nginx does the same.
+	*/
+	args("no maximum: the next line just becomes more arguments", "server_name a.test\nroot ./www ;", 1, ANY,
+		gives("a.test root ./www | then (end)"));
 }
