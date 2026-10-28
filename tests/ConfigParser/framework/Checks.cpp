@@ -74,21 +74,21 @@ void	Tester::test(const std::string &name, const std::string &input, const Expec
 
 void	Tester::parses(const std::string &name, const std::string &config, const std::vector<std::string> &facts)
 {
-	parsesText(name, config, [&config]() { return (config); }, facts);
+	parsesWith(name, config, [&config]() { return (ConfigParser::parseString(config)); }, facts);
 }
 
 void	Tester::parsesFile(const std::string &path, const std::vector<std::string> &facts)
 {
-	parsesText(path, "file " + path, [&path]() { return (readFile(repoPath(path))); }, facts);
+	parsesWith(path, "file " + path, [&path]() { return (ConfigParser::parseFile(repoPath(path))); }, facts);
 }
 
 /*
-parses the text, turns the result into facts, then looks up every fact the
+runs the parse, turns the result into facts, then looks up every fact the
 test names. "got" lists the same keys with the values the parser produced,
 so the two columns line up and the wrong line shows in red.
 */
-void	Tester::parsesText(const std::string &name, const std::string &input,
-			const std::function<std::string()> &load, const std::vector<std::string> &facts)
+void	Tester::parsesWith(const std::string &name, const std::string &input,
+			const std::function<std::vector<ServerConfig>()> &parse, const std::vector<std::string> &facts)
 {
 	std::string	expected;
 
@@ -102,7 +102,7 @@ void	Tester::parsesText(const std::string &name, const std::string &input,
 
 		try
 		{
-			actual = configFacts(ConfigParser::parseString(load()));
+			actual = configFacts(parse());
 		}
 		catch (const ConfigError &e)
 		{
@@ -153,7 +153,7 @@ void	Tester::rejects(const std::string &name, const std::string &config, size_t 
 void	Tester::rejectsFile(const std::string &path, size_t line, const std::string &message)
 {
 	test(path, "file " + path, fails(line, message), [&path]() {
-		return (parsedWithoutError(ConfigParser::parseString(readFile(repoPath(path)))));
+		return (parsedWithoutError(ConfigParser::parseFile(repoPath(path))));
 	});
 }
 

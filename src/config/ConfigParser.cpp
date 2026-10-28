@@ -1,5 +1,6 @@
 #include "config/ConfigParser.hpp"
 #include <cctype>
+#include <fstream>
 #include <iostream> //for TESTING
 #include <limits>
 #include <optional>
@@ -581,6 +582,35 @@ static void	claimNames(const ServerConfig &server,
 }
 
 /*
+STEP 8 - decision 8. a server without server_name matches no Host header,
+so it can only be reached as the default server of one of its listens, and
+the default is the FIRST server declared on that listen. taken holds every
+listen an earlier server already has. a nameless server whose listens are
+ALL in taken can never be reached. one listen that is still free is enough:
+it is the default there.
+a server with names is reached by name, so it only adds its listens.
+*/
+static void	claimDefaults(const ServerConfig &server, std::set<Listen> &taken,
+	size_t line)
+{
+	bool all_taken = true;
+	if (server.serverNames.empty())
+	{
+		for (size_t i = 0; i < server.listens.size(); i++)
+		{
+			if (taken.count(server.listens[i]) == 0)
+				all_taken = false;
+		}
+		if (all_taken)
+			throw ConfigError(line, "server without server_name can never be reached: each of its listens already has a default server");
+	}
+	for (size_t i = 0; i < server.listens.size(); i++)
+	{
+		taken.insert(server.listens[i]);
+	}
+}
+
+/*
 the top level holds server blocks and nothing else.
 */
 std::vector<ServerConfig>	ConfigParser::parseString(const std::string &text)
@@ -589,6 +619,7 @@ std::vector<ServerConfig>	ConfigParser::parseString(const std::string &text)
 	Cursor										cur{tokens, 0};
 	std::vector<ServerConfig>					servers;
 	std::set<std::pair<Listen, std::string>>	claimed;	// see claimNames
+	std::set<Listen>							taken;		// see claimDefaults
 
 	while (!cur.atEnd())
 	{
@@ -601,8 +632,32 @@ std::vector<ServerConfig>	ConfigParser::parseString(const std::string &text)
 		cur.expect("{");
 		servers.push_back(parseServer(cur, t.line));
 		claimNames(servers.back(), claimed, t.line);
+		claimDefaults(servers.back(), taken, t.line);
 	}
 	if (servers.empty())
 		throw ConfigError(1, "no server block");
 	return (servers);
+}
+
+/*
+STEP 9 - the file. parseFile only reads: it puts the whole file into one
+string and hands that to parseString, which does all the rest. the
+tokenizer counts the lines by their '\n's, so every '\n' has to survive
+the read.
+an error here has no line to point at, so it gets line 0.
+*/
+std::vector<ServerConfig>	ConfigParser::parseFile(const std::string &path)
+{
+	std::ifstream file(path);
+	if (!file)
+		throw ConfigError(0, "cannot open '" + path + "'");
+	std::string line;
+	std::string text;
+	while(std::getline(file, line))
+	{
+		text += line + "\n";
+	}
+	if(file.bad())
+		throw ConfigError(0, "cannot read '" + path + "'");
+	return (parseString(text));
 }

@@ -109,6 +109,23 @@ inline void	testFinalize(Tester &t)
 	t.parses("a server may repeat its own name", "server { listen 80; server_name a.test A.test; }",
 		{"s0 names = a.test A.test"});
 
+	/* decision 8: a server without server_name must be the default on one of its listens */
+	const std::string	unreachable = "server without server_name can never be reached: each of its listens already has a default server";
+	t.rejects("two servers without names on one listen", "server { listen 80; }\nserver { listen 80; }", 2, unreachable);
+	t.rejects("a nameless server after a named one", "server { listen 80; server_name a.test; }\nserver { listen 80; }", 2,
+		unreachable);
+	t.rejects("a nameless server whose every listen is taken",
+		"server { listen 80; }\nserver { listen 81; server_name b.test; }\nserver {\n\tlisten 80;\n\tlisten 81;\n}", 3, unreachable);
+	t.rejects("taken by a server further back",
+		"server { listen 80; }\nserver { listen 81; }\nserver { listen 80; server_name c.test; }\nserver { listen 80; }", 4, unreachable);
+	t.parses("nameless, but the default on one of its listens",
+		"server { listen 80; server_name a.test; }\nserver { listen 80; listen 81; }", {"servers = 2"});
+	t.parses("a nameless server first, then a named one", "server { listen 80; }\nserver { listen 80; server_name a.test; }",
+		{"servers = 2"});
+	t.parses("nameless servers on different ports", "server { listen 80; }\nserver { listen 81; }", {"servers = 2"});
+	t.parses("a nameless server may repeat its own listen", "server { listen 80; listen 80; }",
+		{"servers = 1", "s0 listen = 0.0.0.0:80 0.0.0.0:80"});
+
 	/* guarantee 1: at least one server */
 	t.rejects("an empty file", "", 1, "no server block");
 	t.rejects("a file with only comments", "# nothing\n# here\n", 1, "no server block");

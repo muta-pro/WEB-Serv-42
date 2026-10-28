@@ -6,7 +6,7 @@
 > truth for code. If anything here disagrees with the code, trust the code and
 > say so.
 
-Last updated: 2026-10-22 · Branch: `config`
+Last updated: 2026-10-28 · Branch: `config`
 
 ---
 
@@ -40,8 +40,9 @@ Last updated: 2026-10-22 · Branch: `config`
   - Mindmap of all parts: https://claude.ai/artifact/CP1HjycyU2bJNwTaJD6YBq
   - Part 4 (HeaderMap/HttpRequest): https://claude.ai/artifact/YMZuPsKgpEBHAEG46p73oW
   - ConfigParser Pipeline (step through a .conf as a mindmap, linked to the
-    C++): https://claude.ai/artifact/A7jfoArEgnKW58K7mHokKT. **Update it when
-    the parser is done**, see §13.
+    C++): https://claude.ai/artifact/A7jfoArEgnKW58K7mHokKT. Matches the
+    parser as of 2026-10-28 (steps 1-9). Update it when the parser changes,
+    see §13.
 
 ## 2. Git workflow
 
@@ -333,6 +334,9 @@ test suite (§12).
         server's pairs first, then insert them. A set because a loop over
         all earlier servers is ~200 million comparisons in the 20,000-server
         stress test.
+      - `claimDefaults` (decision 8, done 2026-10-28): a
+        `std::set<Listen> taken`; a nameless server whose listens are all
+        in `taken` is rejected, then every server inserts its listens.
       - `parseString`: reject a file with zero servers ("no server block",
         line 1).
       - Empty root (guarantee 6) needs no check: tokens are never empty and
@@ -340,8 +344,17 @@ test suite (§12).
       - The meaning of `clientMaxBody` (§9, B) is written next to the field
         in ServerConfig.hpp, for Ivan.
       - Decision 1 meant adding `listen 80;` to 12 older tests that had none.
-- [ ] **9. `parseFile`.** Read with `std::ifstream` (throw ConfigError if it
-      can't be opened), then call `parseString`.
+- [x] **9. `parseFile`.** Done 2026-10-28. Read with `std::ifstream`, line by line with
+      `std::getline` (adding back each `'\n'`, or every token lands on line
+      1), then call `parseString`. Errors get line 0, since no line was read:
+      - "cannot open '<path>'": `!file` after opening (missing, no
+        permission, empty path).
+      - "cannot read '<path>'": `file.bad()` after the loop. That's a
+        directory: on Linux an ifstream opens one fine, and only the first
+        read fails. (Reading with `<< file.rdbuf()` can't tell a directory
+        from an empty file, which is why the plan uses getline.)
+      - Tests: the `file` section (`09_file.hpp`, 15 tests). The suite's
+        `parsesFile` / `rejectsFile` now read through `parseFile` too.
 - [ ] **10. Test corpus.**
       - Split the rejection cases into `conf/invalid/<case>.conf`.
       - Add a `corpus` section to the suite (§12): `parsesFile` for every
@@ -351,13 +364,14 @@ test suite (§12).
         `main.cpp` and `dumpConfig` work.
         `invalid_syntax.conf` is a known issue in the suite until §5.6 is
         fixed.
-- [ ] **When the parser is done:** ask Claude to update the ConfigParser
-      Pipeline page to the finished code (§13).
+- [x] **When the parser is done:** update the ConfigParser Pipeline page
+      to the finished code (§13). Done 2026-10-28, steps 1-9. Update it again
+      if the parser still changes (for example when §5.6 is fixed).
 
-**Next up:** step 9, `parseFile`. Steps 1-8 are done (2026-10-22), and all
-359 tests pass. Claude writes the scaffold and a `file` test section first,
-as before. Still open: decision 8 (§11). Ravi asked to go through the parser
-at the same pace as the C++ lessons.
+**Next up (2026-10-28):** step 10, the test corpus. Steps 1-9 are done
+and all 382 tests pass. Claude writes the scaffold first, as before: the
+`conf/invalid/<case>.conf` files and a `corpus` section. Ravi asked to go
+through the parser at the same pace as the C++ lessons.
 
 The visualizer page "ConfigParser Pipeline"
 (https://claude.ai/artifact/A7jfoArEgnKW58K7mHokKT) embeds ConfigParser.cpp
@@ -401,10 +415,15 @@ changes, update both, so the page matches the code.
    check goes in `parseSize`, so the server and location levels both get it.
    nginx reads 0 as "no limit", read literally it refuses every body, and
    the architecture doc says to reject ambiguous values at startup.
-8. Two servers **without** a `server_name` on the same listen. Not a name
-   conflict under decision 4, so it's accepted, but the second one can never
-   be reached: it matches no Host, and the first server is the default.
-   nginx warns about it. Reject it too, or leave it?
+8. ~~Two servers **without** a `server_name` on the same listen?~~
+   **Decided 2026-10-27: reject every unreachable server.** A server with no
+   `server_name` matches no Host, so it can only be reached as the default
+   (the first server) on one of its listens. If an earlier server, named or
+   not, already has every one of its listens, it is rejected on its `server`
+   line: "server without server_name can never be reached: each of its
+   listens already has a default server". One free listen is enough.
+   Checked by `claimDefaults` with a `std::set<Listen> taken` in
+   `parseString`, next to `claimNames`.
 
 ## 12. Test suite: `tests/ConfigParser/`
 
@@ -422,8 +441,9 @@ make test ARGS="-f listen -x"         # ./tester options; ./tester --help lists 
 ```
 
 - **Sections so far:** 1 `error`, 2 `tokenizer`, 3 `cursor`, 4 `skeleton`,
-  5 `values`, 6 `server`, 7 `locations`, 8 `finalize` (359 tests, all
-  passing). Steps 9-10 are commented out in `main.cpp`, ready to add.
+  5 `values`, 6 `server`, 7 `locations`, 8 `finalize`, 9 `file` (382
+  tests, all passing). Step 10 is commented out in `main.cpp`, ready to
+  add.
 - **How it reaches the internals:** `main.cpp` includes `ConfigParser.cpp`
   itself, through `parser_under_test.hpp`. That's how the tests see `Token`,
   `Cursor` and the `static` helpers. When a function's signature changes,
@@ -444,31 +464,32 @@ make test ARGS="-f listen -x"         # ./tester options; ./tester --help lists 
   their names say so. For example, an empty file gives 0 servers until
   step 8 rejects it.
 
-## 13. ConfigParser Pipeline page: update it when the parser is done
-
-**Reminder: once the config parser is finished (steps 7-10), Ravi wants
-this page updated to the finished code.** Ask Claude for it then.
+## 13. ConfigParser Pipeline page: keep it in sync with the parser
 
 - Page: https://claude.ai/artifact/A7jfoArEgnKW58K7mHokKT (private). Load a
   .conf (a sample from `conf/`, your own file, or typed in) and step through
   the parse as a mindmap. The Pipeline view has one block per function; the
   Call tree view has one node per call. Each block shows the C++ lines that
   ran, the variables after the step, and the tokens the cursor read.
-- Built from `ConfigParser.cpp` as it was when Ravi asked on 2026-10-21:
-  steps 1-6 and the step 7 scaffold. `parseLocationDirective` is still the
-  placeholder that drops its arguments there; the branches written later
-  that day are not in it.
+- Built from `ConfigParser.cpp` as of 2026-10-28: steps 1-9, the whole
+  parser. It starts at `parseFile` (the browser already has the text, so
+  "cannot open" / "cannot read" can't happen there) and includes
+  `claimDefaults` (decision 8).
 - How it works: the page embeds the C++ files and runs a JavaScript copy of
   the parser that records every call. It finds C++ line numbers by
   searching the embedded source for snippets (`ANCHORS` in the page's trace
   engine), so code that only moves keeps working.
-- To update: `Artifact read` the URL. Replace the embedded `ConfigParser.cpp`
-  (and the headers and confs, if they changed). Port the new code to the JS
-  copy: the step 7 branches and checks, step 8's finalize, `parseFile`. Add
-  pipeline blocks for new functions and fix any anchors that no longer match.
-  Then check the copy against the real parser: build a small C++ driver that
-  includes `ConfigParser.cpp` and prints the tokens and the result or the
-  ConfigError for each input. Diff its output with the copy's output on the
-  `conf/` files, the strings in the test sections, and random mutations of
-  both. On 2026-10-21 the two agreed on all 1,140 inputs.
-
+- To update: `Artifact read` the URL (the read comes back with the publish
+  wrapper, `<!doctype ...><body>`; strip it before publishing again).
+  Replace the embedded `ConfigParser.cpp` (and the headers and confs, if
+  they changed). Port the new code to the JS copy, add `FUNCS` / `ANCHORS`
+  entries, an `FN` description and a pipeline `BLOCKS` entry for each new
+  function, and fix any anchors that no longer match.
+- Then check the copy against the real parser: run the copy's
+  `traceParse` in Node and compare its facts or error with
+  `./tester --facts -` (stdin) on the `conf/` files, the strings in the test
+  sections and random mutations of the confs; then open the page in
+  headless Chrome and step through every sample in both views. On
+  2026-10-28 the two agreed on all 447 inputs (31 of them rejected by
+  decision 8), all 271 anchors were found, and the page ran without a
+  JavaScript error.

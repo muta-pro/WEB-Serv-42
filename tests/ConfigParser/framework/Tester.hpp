@@ -55,7 +55,8 @@ class Tester
 		          ("key = value") must hold. ./tester --facts FILE prints
 		          all the facts of a config, ready to copy.
 		rejects   parseString(config) must throw ConfigError(line, message).
-		...File   the same for a file in the repo, e.g. "conf/default.conf".
+		...File   the same for a file in the repo, e.g. "conf/default.conf",
+		          read by ConfigParser::parseFile.
 		*/
 		void	test(const std::string &name, const std::string &input, const Expect &expect,
 					const std::function<std::string()> &body);
@@ -136,8 +137,8 @@ class Tester
 
 		void	check(const std::string &name, const std::string &input, const std::string &expected,
 					const std::function<Result()> &body);
-		void	parsesText(const std::string &name, const std::string &input,
-					const std::function<std::string()> &load, const std::vector<std::string> &facts);
+		void	parsesWith(const std::string &name, const std::string &input,
+					const std::function<std::vector<ServerConfig>()> &parse, const std::vector<std::string> &facts);
 
 		Result			runIsolated(const std::function<Result()> &body, std::string &output);
 		static Result	guarded(const std::function<Result()> &body);
