@@ -43,7 +43,7 @@ const pointers and never mutates them.
 		3. no match -> the FIRST block declared for that Listen wins. it is
 		   the default server. an unknown Host is never an error.
 	a missing Host header on HTTP/1.1 is a different matter - that is a 400
-	from Liza's parser per RFC 9112 3.2, not a routing decision.
+	from Paola's request parser (C) per RFC 9112 3.2, not a routing decision.
 */
 struct ServerConfig {
 	std::vector<Listen>			listens;		// at least one, parser enforces

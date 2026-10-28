@@ -12,14 +12,34 @@ Last updated: 2026-10-28 · Branch: `config`
 
 ## 1. Who and how
 
-- **Team:** Ravi and Ivan. Liza (spelled "Lisa" in some code comments) left.
-  Her work has not been redistributed, so don't assume who owns a module
-  because a comment or the architecture doc names someone.
-- **Ravi owns the config layer** (`includes/config/`, `src/config/`, `conf/`).
-  Ravi wrote the config headers, and the headers name Ravi as the parser.
-- **Avoid touching Ivan's code.** The Makefile, `main.cpp`, and the http/,
-  network/ and cgi/ modules are shared or Ivan's. Check with Ravi before
-  editing them.
+- **Team (since 2026-10-28): Ravi, Ivan and Paola.** Paola took over the
+  part Liza (spelled "Lisa" in some code comments) had before she left. The
+  split is the team's "three-person architecture blueprint":
+
+  | Zone | Who | Owns |
+  |---|---|---|
+  | **A · Network & runtime** | Ivan | sockets and listening ports, connections and the event loop, read/write, timeouts, CGI process execution, `main.cpp` |
+  | **B · Config & response** | **Ravi** | config parsing and validation, the final server/location models, static files, error pages, redirects, autoindex, response building and serialization, CGI output interpretation |
+  | **C · HTTP & routing** | Paola | incremental request parsing, request validation and body framing, virtual-host and location routing. Returns a decision (`RouteResult`), not a response |
+
+  Before the server opens, B reads the config; A starts the server with it
+  and C applies its rules. A request goes A → C → B → A. The handoffs:
+  B → A + C the finished config (A learns where to listen, C which rules to
+  apply); A → C request bytes; C → B `HttpRequest` + `RouteResult`;
+  B → A the `HttpResponse` / serialized bytes; for CGI, A runs the process
+  and collects its output, B turns that output into a response.
+- **Ravi's files** (B): `includes/config/`, `src/config/`, `conf/`, and on
+  the response side `includes/http/HttpResponse.hpp`,
+  `src/http/HttpResponse.cpp`, `includes/http/ResponseBuilder.hpp`,
+  `src/http/ResponseBuilder.cpp`. CGI output interpretation has no file yet
+  (`includes/cgi/CgiHandler.hpp` is empty; `src/cgi/CgiHandler.cpp` holds
+  `CgiProcess`, which is A's runtime side).
+- **Avoid touching A's and C's code.** A: `network/`, `main.cpp`,
+  `CgiProcess`. C: `HttpRequest`, `HttpRequestParser`, `ParseResult`,
+  `Router`, `RouteResult`. `HeaderMap` / `CaseInsensitiveLess` are shared
+  by request and response. **Shared headers and the Makefile change only
+  after the team agrees on the interface.** Check with Ravi before editing
+  anything outside B.
 - **Ravi is relearning C++** (hadn't written any since June 2026). Explain
   with concrete examples from this repo, and briefly recap anything that may
   have faded. Ravi wants to understand and write the code, so don't implement
@@ -98,9 +118,9 @@ pointers, which `RouteResult` borrows, and never mutates them.
 | `includes/config/ServerConfig.hpp` | Done. `Listen` (has `operator<`, so it works as a map key), `errorPageUri`, `matchesHost`. |
 | `src/config/ServerConfig.cpp` | Done, compiles clean: Listen operators, the LocationConfig predicates, `grantImplicitHead`, `resolvePath`, `errorPageUri`, `matchesHost` (strips the port, case-insensitive). |
 | `includes/config/ConfigParser.hpp` | Done. `ConfigError(line, msg)`, `ServerDefaults` (parser-only scratch), `parseFile` / `parseString`, the syntax rules, and **7 guarantees** (see §6). |
-| `src/config/ConfigParser.cpp` | **Empty. This is the main job.** |
-| `includes/config/ConfigDump.hpp` + `src/config/ConfigDump.cpp` | Step 0 stubs: `dumpConfig(std::ostream&, const std::vector<ServerConfig>&)`. Not implemented. |
-| `src/main.cpp` | Step 0 stub. Currently **all commented out** (Ravi's choice). The TODO says the default path is `"default.conf"`, but the file is now at `conf/default.conf`, so update the path when implementing. |
+| `src/config/ConfigParser.cpp` | Done (2026-10-28): steps 1-10 of §10 and the §5.6 fix. |
+| `includes/config/ConfigDump.hpp` + `src/config/ConfigDump.cpp` | Step 0 stubs: `dumpConfig(std::ostream&, const std::vector<ServerConfig>&)`. Not implemented, not in the Makefile. A debug printer B offers; whether `main` uses it is A's call. |
+| `src/main.cpp` | **A's file (Ivan).** Still the phase 0 stub. Ravi's commented-out plan for it was taken out on 2026-10-28 (the PR doesn't touch `main.cpp`); the plan went to A, see "Tell the team". |
 | `conf/default.conf` | Realistic config. Ravi moved it from `docs/default.conf` (where Ivan had put it) to `conf/`. |
 | `conf/edge_cases.conf` | Adversarial but valid. Pins the tokenizer's behaviour (see §7). |
 | `conf/multi_server.conf` | Several servers, shared ports, virtual hosts. |
@@ -118,8 +138,8 @@ Ivan's recent changes (on `feature/phase-0`, 2026-09-22 to 09-28):
 
 1. **The Makefile doesn't compile `config/ConfigDump.cpp`.** (It does build
    `ConfigParser.cpp` and `ServerConfig.cpp` since Ivan's 2026-10-01 commit.)
-   Add it when `dumpConfig` is implemented; tell Ivan, since the Makefile is
-   shared.
+   Add it when `dumpConfig` is implemented. The Makefile is shared, so that
+   is a team decision.
 2. **Inheritance can't be applied line by line.** `root` may appear *after* a
    `location` block in the same server and must still apply to it. Solution
    in §8.
@@ -278,7 +298,7 @@ Example from default.conf: the server sets `1M`, while `/upload/` sets `10M`.
   that over-limit bodies under the ceiling get buffered before rejection.
 
 **Decided 2026-10-21: B.** Step 8 sets it to the largest limit of the
-server's locations. Tell Ivan, because his HTTP parser is the reader: it
+server's locations. Tell Paola (C), because her request parser is the reader: it
 compares `Content-Length` with `server.clientMaxBody` before reading the
 body (413 if over), and the router does the exact per-location check after.
 Decision 7 (no `0`) keeps this simple: every location has a real limit.
@@ -352,7 +372,7 @@ test suite (§12).
       - Empty root (guarantee 6) needs no check: tokens are never empty and
         `root ;` already fails on the argument count.
       - The meaning of `clientMaxBody` (§9, B) is written next to the field
-        in ServerConfig.hpp, for Ivan.
+        in ServerConfig.hpp, for the team.
       - Decision 1 meant adding `listen 80;` to 12 older tests that had none.
 - [x] **9. `parseFile`.** Done 2026-10-28. Read with `std::ifstream`, line by line with
       `std::getline` (adding back each `'\n'`, or every token lands on line
@@ -378,11 +398,11 @@ test suite (§12).
         change; a file without the `# expect:` line fails.
       - `invalid_syntax.conf` stays where it is, checked by the skeleton
         section.
-      - Later, once `main.cpp` works: maybe also run the real `./webserv`
-        on every corpus file and check its exit code and the error it
-        prints. The corpus runs `parseFile` inside the tester, so it never
-        touches `main.cpp`; this would also check main's part (argv,
-        catching the ConfigError, printing it, exiting non-zero).
+      - Later, once A's `main.cpp` loads the config: maybe also run the
+        real `./webserv` on every corpus file and check its exit code and
+        the error it prints. The corpus runs `parseFile` inside the tester,
+        so it never touches `main.cpp`; this would also check main's part
+        (argv, catching the ConfigError, printing it, exiting non-zero).
 - [x] **When the parser is done:** update the ConfigParser Pipeline page
       to the finished code (§13). Done 2026-10-28, including the §5.6 fix.
       Update it again if the parser still changes.
@@ -390,24 +410,36 @@ test suite (§12).
 **Next up (2026-10-28):** the parser is finished: steps 1-10 and the §5.6
 fix, 469 tests, all passing, no known issues. The PR from `config` into
 `main` is written; `gh` isn't installed here, so Ravi opens it from
-GitHub's compare page with the prepared title and description. Next:
-`main.cpp` (parse the file from argv, print the ConfigError and exit
-non-zero), `dumpConfig`, adding `ConfigDump.cpp` to the Makefile (tell
-Ivan). Pushed to `config` while the PR is open, those join the same PR.
-Ravi asked to go through the parser at the same pace as the C++ lessons.
+GitHub's compare page with the prepared title and description.
+`main.cpp` is **not** Ravi's next step any more: it is A's (Ivan). Ravi's
+next work is B's response side. In the blueprint's order: (01) agree on
+`HttpResponse` with the team, since it's a shared door, then (02) build
+and test the response side with sample data: static files, error pages
+(`errorPageUri`, the recursion guard and `internal`, see
+`ServerConfig.hpp`), redirects, autoindex, serialization (`toBytes`), CGI
+output interpretation. `ResponseBuilder.cpp` is only a commented-out
+sketch so far. Ravi asked to go through the work at the same pace as the
+C++ lessons.
 
 The visualizer page "ConfigParser Pipeline"
 (https://claude.ai/artifact/A7jfoArEgnKW58K7mHokKT) embeds ConfigParser.cpp
 and a JavaScript copy of the parser that steps through it. When the parser
 changes, update both, so the page matches the code.
 
-**Tell Ivan** (collected from the sections above):
-- §9 / decision 3 (B): his HTTP parser compares `Content-Length` with
-  `server.clientMaxBody` before reading the body (413 if over). The router
-  does the exact per-location check.
-- Decision 2: `listen` hosts aren't validated; his socket code resolves them
-  with `getaddrinfo`.
-- §5.1: the shared Makefile doesn't compile `ConfigDump.cpp` yet.
+**Tell the team** (collected from the sections above; all of it is in the
+PR description too):
+- **A (Ivan):** `listen` hosts aren't validated (decision 2); the socket
+  code resolves them with `getaddrinfo`. `main.cpp` loads the config:
+  `ConfigParser::parseFile(path)` with `path` from `argv[1]` (default
+  `conf/default.conf`, more than one argument is a usage error), catch
+  `ConfigError`, print `what()` to `std::cerr`, return 1.
+- **C (Paola):** §9 / decision 3 (B): the request parser compares
+  `Content-Length` with `server.clientMaxBody` before reading the body
+  (413 if over); the matched location's own `clientMaxBody` is the exact
+  check after routing. A missing Host header on HTTP/1.1 is a 400 from the
+  request parser (RFC 9112 3.2).
+- **Everyone:** §5.1: the shared Makefile doesn't compile `ConfigDump.cpp`
+  yet; adding it is a team decision once `dumpConfig` is written.
 
 ## 11. Open decisions
 
@@ -418,9 +450,9 @@ changes, update both, so the page matches the code.
    **Decided 2026-10-14: any non-empty host string.** The parser doesn't
    validate it; the socket code resolves it with `getaddrinfo`, so
    `localhost` works. A bad host is only caught at bind time, without a line
-   number. Tell Ivan.
+   number. Tell Ivan (A).
 3. ~~The meaning of `ServerConfig::clientMaxBody`?~~ **Decided 2026-10-21:
-   B**, the largest limit of the server's locations (§9). Tell Ivan.
+   B**, the largest limit of the server's locations (§9). Tell Paola (C).
 4. ~~The same `server_name` on the same listen in two servers: error, or
    first one wins?~~ **Decided 2026-10-22: error**, "conflicting server_name
    'a.test' on 0.0.0.0:80" on the second server's line. Case-insensitive,

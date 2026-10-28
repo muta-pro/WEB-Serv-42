@@ -17,8 +17,8 @@ one location block, FULLY RESOLVED by ConfigParser at startup.
 	runtime. (decision 5 - parse-time inheritance.)
 
 	held by const pointer inside RouteResult. immutable after startup.
-	location MATCHING lives in Liza's router, not here - this struct only
-	answers questions about its own data.
+	location MATCHING lives in Paola's router (C), not here - this struct
+	only answers questions about its own data.
 */
 struct LocationConfig {
 	std::string				path;			// URI prefix this block claims, e.g. "/cgi-bin/"
@@ -53,8 +53,8 @@ struct LocationConfig {
 };
 
 /*
-URL path -> filesystem path. THE contract between Liza's router and Ravi's
-file loader. both call this; neither reimplements it.
+URL path -> filesystem path. THE contract between Paola's router (C) and
+Ravi's file loader (B). both call this; neither reimplements it.
 
 	ALIAS SEMANTICS (decision 2). the subject says:
 		"if URL /kapouet is rooted to /tmp/www, URL /kapouet/pouic/toto/pouet
