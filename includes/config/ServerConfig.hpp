@@ -43,14 +43,24 @@ const pointers and never mutates them.
 		3. no match -> the FIRST block declared for that Listen wins. it is
 		   the default server. an unknown Host is never an error.
 	a missing Host header on HTTP/1.1 is a different matter - that is a 400
-	from Liza's parser per RFC 9112 3.2, not a routing decision.
+	from Paola's request parser (C) per RFC 9112 3.2, not a routing decision.
 */
 struct ServerConfig {
 	std::vector<Listen>			listens;		// at least one, parser enforces
 	std::vector<std::string>	serverNames;	// matched against Host:, may be empty
 	std::map<int, std::string>	errorPages;		// status code -> URI (see below)
-	size_t						clientMaxBody = 1048576;	// 1 MiB
+	size_t						clientMaxBody = 1048576;	// largest of the locations' limits, see below
 	std::vector<LocationConfig>	locations;		// declaration order preserved
+
+	/*
+	clientMaxBody is the EARLY cap, for the HTTP parser. the location - and
+	with it the exact limit - is only known after routing, which runs after
+	the whole request is in. so the parser compares Content-Length with this
+	value before reading the body (413 if over), and the router checks the
+	matched location's own clientMaxBody after. it is the largest limit of
+	any location in this server, so it never refuses a body that some
+	location would accept. never 0: the parser refuses a size of 0.
+	*/
 
 	/*
 	returns "" when no custom page is configured for this code; the caller
