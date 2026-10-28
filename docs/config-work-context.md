@@ -119,7 +119,6 @@ pointers, which `RouteResult` borrows, and never mutates them.
 | `src/config/ServerConfig.cpp` | Done, compiles clean: Listen operators, the LocationConfig predicates, `grantImplicitHead`, `resolvePath`, `errorPageUri`, `matchesHost` (strips the port, case-insensitive). |
 | `includes/config/ConfigParser.hpp` | Done. `ConfigError(line, msg)`, `ServerDefaults` (parser-only scratch), `parseFile` / `parseString`, the syntax rules, and **7 guarantees** (see §6). |
 | `src/config/ConfigParser.cpp` | Done (2026-10-28): steps 1-10 of §10 and the §5.6 fix. |
-| `includes/config/ConfigDump.hpp` + `src/config/ConfigDump.cpp` | Step 0 stubs: `dumpConfig(std::ostream&, const std::vector<ServerConfig>&)`. Not implemented, not in the Makefile. A debug printer B offers; whether `main` uses it is A's call. |
 | `src/main.cpp` | **A's file (Ivan).** Still the phase 0 stub. Ravi's commented-out plan for it was taken out on 2026-10-28 (the PR doesn't touch `main.cpp`); the plan went to A, see "Tell the team". |
 | `conf/default.conf` | Realistic config. Ravi moved it from `docs/default.conf` (where Ivan had put it) to `conf/`. |
 | `conf/edge_cases.conf` | Adversarial but valid. Pins the tokenizer's behaviour (see §7). |
@@ -136,10 +135,12 @@ Ivan's recent changes (on `feature/phase-0`, 2026-09-22 to 09-28):
 
 ## 5. Problems found in the code review
 
-1. **The Makefile doesn't compile `config/ConfigDump.cpp`.** (It does build
-   `ConfigParser.cpp` and `ServerConfig.cpp` since Ivan's 2026-10-01 commit.)
-   Add it when `dumpConfig` is implemented. The Makefile is shared, so that
-   is a team decision.
+1. ~~The Makefile doesn't compile `config/ConfigDump.cpp`.~~ **Gone
+   2026-10-28:** `ConfigDump.hpp/.cpp` (a `dumpConfig` stub, never written)
+   were deleted before the PR. Nothing used them, and `make facts
+   FILE=...` in the test suite already prints everything the parser
+   resolved. (The Makefile builds `ConfigParser.cpp` and `ServerConfig.cpp`
+   since Ivan's 2026-10-01 commit.)
 2. **Inheritance can't be applied line by line.** `root` may appear *after* a
    `location` block in the same server and must still apply to it. Solution
    in §8.
@@ -309,7 +310,8 @@ Each step ends with something you can run, and adds its section to the
 test suite (§12).
 
 - [x] **0. Scaffolding** (stubs only): `main.cpp`, `ConfigDump.hpp/.cpp`.
-      Still to do: the Makefile entries and the implementations.
+      Both left the branch on 2026-10-28: `main.cpp` is A's, and
+      `ConfigDump` was deleted unused (§5.1).
 - [x] **1. `ConfigError`.** Constructor builds `config error, line N: <msg>`,
       plus the `line()` getter.
 - [x] **2. Tokenizer.** `struct Token { std::string text; size_t line; };`
@@ -438,8 +440,6 @@ PR description too):
   (413 if over); the matched location's own `clientMaxBody` is the exact
   check after routing. A missing Host header on HTTP/1.1 is a 400 from the
   request parser (RFC 9112 3.2).
-- **Everyone:** §5.1: the shared Makefile doesn't compile `ConfigDump.cpp`
-  yet; adding it is a team decision once `dumpConfig` is written.
 
 ## 11. Open decisions
 
