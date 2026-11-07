@@ -4,6 +4,8 @@
 #include <set>
 #include <string>
 
+#include "http/HttpMethod.hpp"
+
 /*
 one location block, FULLY RESOLVED by ConfigParser at startup.
 
@@ -15,13 +17,13 @@ one location block, FULLY RESOLVED by ConfigParser at startup.
 	runtime. (decision 5 - parse-time inheritance.)
 
 	held by const pointer inside RouteResult. immutable after startup.
-	location MATCHING lives in Liza's router, not here - this struct only
-	answers questions about its own data.
+	location MATCHING lives in Paola's router (C), not here - this struct
+	only answers questions about its own data.
 */
 struct LocationConfig {
 	std::string				path;			// URI prefix this block claims, e.g. "/cgi-bin/"
 	std::string				root;			// filesystem base - ALIAS semantics, see resolvePath()
-	std::set<std::string>	allowedMethods = {"GET", "HEAD"};
+	std::set<HttpMethod>	allowedMethods = {HttpMethod::Get, HttpMethod::Head};
 	std::string				index = "index.html";	// tried when target resolves to a directory
 	bool					autoindex = false;		// listing when index is missing
 	std::string				cgiExt;			// ".py" - empty means no CGI in this block
@@ -32,7 +34,7 @@ struct LocationConfig {
 	size_t					clientMaxBody = 1048576;	// already resolved, never "inherit"
 	bool					internalOnly = false;		// nginx `internal;` - see ServerConfig errorPages
 
-	bool	allowsMethod(const std::string &method) const;
+	bool	allowsMethod(HttpMethod method) const;
 	bool	isCGI() const;
 	bool	isRedirect() const;
 	bool	acceptsUploads() const;
@@ -51,8 +53,8 @@ struct LocationConfig {
 };
 
 /*
-URL path -> filesystem path. THE contract between Liza's router and Ravi's
-file loader. both call this; neither reimplements it.
+URL path -> filesystem path. THE contract between Paola's router (C) and
+Ravi's file loader (B). both call this; neither reimplements it.
 
 	ALIAS SEMANTICS (decision 2). the subject says:
 		"if URL /kapouet is rooted to /tmp/www, URL /kapouet/pouic/toto/pouet
