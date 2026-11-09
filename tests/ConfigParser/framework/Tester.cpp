@@ -505,8 +505,16 @@ Tester::Result	Tester::runIsolated(const std::function<Result()> &body, std::str
 =============================================================================
 */
 
+static const char	*const CONFIG_EXAMPLES =
+	"    ./tester                                   everything\n"
+	"    ./tester values -f listen                  only the listen tests of step 5\n"
+	"    ./tester 2 3 -q                            tokenizer and cursor, compact\n"
+	"    ./tester --facts conf/default.conf\n"
+	"    echo 'server { listen 80; }' | ./tester --facts -\n";
+
 Tester::Tester(int argc, char **argv)
-	: _verbose(false), _quiet(false), _exitFirst(false), _list(false), _help(false), _fork(true),
+	: _title("config parser tests"), _examples(CONFIG_EXAMPLES),
+	  _verbose(false), _quiet(false), _exitFirst(false), _list(false), _help(false), _fork(true),
 	  _timeout(2), _current(nullptr), _counting(false), _headerShown(false), _stopped(false),
 	  _marks(0), _capture(nullptr)
 {
@@ -572,6 +580,12 @@ void	Tester::add(int step, const std::string &name, const std::string &title, vo
 void	Tester::known(const std::string &note)
 {
 	_knownNote = note;
+}
+
+void	Tester::suite(const std::string &title, const std::string &examples)
+{
+	_title = title;
+	_examples = examples;
 }
 
 /* the sections named on the command line, by name or step number */
@@ -709,7 +723,7 @@ void	Tester::printBanner() const
 			+ (_timeout ? " · " + std::to_string(_timeout) + "s limit" : std::string(" · no time limit"));
 	else
 		mode += " · all tests in this process (--no-fork)";
-	std::cout << "\n  " << bold("webserv") << dim(" · ") << bold("config parser tests") << "   " << dim(mode) << "\n";
+	std::cout << "\n  " << bold("webserv") << dim(" · ") << bold(_title) << "   " << dim(mode) << "\n";
 	if (!_filter.empty())
 		std::cout << "  " << dim("only tests whose name contains ") << "'" << _filter << "'\n";
 }
@@ -972,9 +986,5 @@ void	Tester::printUsage(std::ostream &out) const
 		<< "        --no-color       plain output (also NO_COLOR=1, or when piped)\n"
 		<< "    -h, --help           this\n\n"
 		<< "  " << bold("examples") << "\n"
-		<< "    ./tester                                   everything\n"
-		<< "    ./tester values -f listen                  only the listen tests of step 5\n"
-		<< "    ./tester 2 3 -q                            tokenizer and cursor, compact\n"
-		<< "    ./tester --facts conf/default.conf\n"
-		<< "    echo 'server { listen 80; }' | ./tester --facts -\n\n";
+		<< _examples << "\n";
 }

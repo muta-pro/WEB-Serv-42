@@ -47,6 +47,13 @@ class Tester
 		int		run();
 
 		/*
+		another suite on this runner (tests/ResponseBuilder) names itself:
+		the title in the banner, and the examples --help ends with. without
+		a call, both are the config parser's.
+		*/
+		void	suite(const std::string &title, const std::string &examples);
+
+		/*
 		CHECKS - every call is one test.
 
 		test      body returns its result as text. a ConfigError thrown
@@ -109,6 +116,10 @@ class Tester
 			std::string	note;
 			bool		fixed;
 		};
+
+		/* the suite */
+		std::string					_title;
+		std::string					_examples;
 
 		/* options */
 		bool						_verbose;
