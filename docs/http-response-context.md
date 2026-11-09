@@ -6,7 +6,7 @@
 > and how Ravi works. The repo is the source of truth for code. If anything
 > here disagrees with the code, trust the code and say so.
 
-Last updated: 2026-11-09 · Branch: `response` (made from `main`) · Issue: #__
+Last updated: 2026-11-09 · Branch: `response` (made from `main`) · Issue: #9
 
 ---
 
@@ -40,9 +40,16 @@ Last updated: 2026-11-09 · Branch: `response` (made from `main`) · Issue: #__
 - **2026-11-07, later the same day:** Ravi asked Claude to build the step 1
   harness and the pipeline page "the same way as for the config parser".
   Claude built both (§7–§9), plus the `buildResponse` stub the suite needs
-  to link. Ravi still writes the builder itself. Whether the later steps'
-  test sections also go the config way (Claude writes each step's section
-  first) isn't settled: ask.
+  to link. Ravi still writes the builder itself.
+- **Test sections: settled 2026-11-09.** Ravi chose the config way for the
+  build path: Claude writes each step's test section first, walks Ravi
+  through what it checks and why, and Ravi writes the builder code until it
+  passes. Claude still writes no builder code (no reference implementation
+  either, not even a throwaway one: on 2026-11-09 Ravi declined one that was
+  meant only to prove the step 2 tests passable).
+- **Ravi had never used a `switch`** (2026-11-09). Don't assume a C++
+  construct is known: when a step needs one, explain it from zero, with an
+  example from this repo.
 - **Ravi learns by doing.** Reading-only material doesn't stick, which is why
   the Lab exists. Keep each explanation short and pair it with something to
   do: a Lab drill, a test to write, a `curl` to run. Recap C++ with examples
@@ -79,7 +86,7 @@ It had no commits of its own yet and `main`'s files were identical to
 (`git reset --keep origin/main`). Same habits as `config`:
 
 ```sh
-# first push only: origin/response doesn't exist yet
+# first push only (done: a374447, 2026-11-09)
 git push -u origin response        # tracks origin/response from now on
 
 # every session
@@ -97,7 +104,7 @@ git merge origin/main              # conflicts, if any, show up here, on Ravi's 
   `main` into it unasked. It tracks `origin/response` only.
 - The PR from `response` into `main` now shows only response work, so it
   can be opened whenever Ravi wants a review.
-- `Closes #<issue>` in that PR's description closes the tracking issue on
+- `Closes #9` in that PR's description closes the tracking issue on
   merge. This file lives in `docs/`, so it goes into `main` with the PR, like
   the config file.
 - The `config` branch (local and `origin/config`) is merged and has no
@@ -203,11 +210,22 @@ drills are in the Field Guide and in the Lab's Build path tab.
   Done when one test builds a request and a route, calls `buildResponse`,
   and the suite runs green. See §7. **Done 2026-11-07:** 67 tests, green
   against the stub (built by Claude on Ravi's request, see §1).
-- [ ] **2. Skeleton. ← current step.** A switch on `route.action` with a stub per case, a
+- [x] **2. Skeleton.** A switch on `route.action` with a stub per case, a
   `default` that answers 500, and one `try`/`catch` of `std::exception`
   answering `makeError(500)`. Done when an unexpected action gets 500, and a
-  handler that throws gets 500 with nothing escaping.
-- [ ] **3. StaticFile.** `stat()` fails: 404; not `S_ISREG`, or
+  handler that throws gets 500 with nothing escaping. **Tests:** section 2
+  `skeleton` (`make skeleton`), written by Claude on 2026-11-09: 18 tests,
+  12 failing against the step 1 stub for the right reason (it answers 200).
+  The throwing test is a Redirect whose `redirectLocation` holds CR LF: at
+  step 2 the Redirect stub decides it, from step 6 on `setHeader`'s throw.
+  **Done 2026-11-09:** 85/85. Ravi's shape: the six handlers throw
+  `std::runtime_error("not implemented yet")`; no `default:`, the 500 for
+  an unknown action is the `return` after the `try`/`catch` (so `-Wswitch`
+  still catches a missing case); the catch prints
+  `buildResponse: <what()>` to `std::cerr`; `buildErrorResponse` is only
+  its fallback, `makeError(statusCode)`, until step 7 adds the custom page
+  above it.
+- [ ] **3. StaticFile. ← current step.** `stat()` fails: 404; not `S_ISREG`, or
   `access(R_OK)` fails: 403. The whole file read in binary, appended by byte
   count; a MIME table with a default type; a size limit for files read into
   memory. Done when tests give 200, 404, and 403 for a folder and a FIFO,
@@ -332,7 +350,10 @@ make facts FILE=conf/default.conf      # the location blocks and roots a scene c
 make test ARGS="-f t3 -x"              # ./tester options; ./tester --help lists them
 ```
 
-- **Sections so far:** 1 `harness` (67 tests: the request, `resolvePath`,
+- **Sections so far:** 2 `skeleton` (18 tests, 2026-11-09: Error routes keep
+  C's code, every action gets an answer, an unknown action gets 500, a
+  throwing handler gets 500 and the injected header never reaches the
+  wire; all green since 2026-11-09). 1 `harness` (67 tests: the request, `resolvePath`,
   the site and its routes, the sandbox, the facts, scenes, and the step 1
   check). All green against the stub.
 - **A test is a Triage card:**
@@ -383,15 +404,19 @@ make test ARGS="-f t3 -x"              # ./tester options; ./tester --help lists
   (23 cards, 7 bench) gave identical bytes, all 115 anchors were found, and
   60 walks (every step, both views) ran without a JavaScript error.
 
-## 10. Next up (2026-11-07)
+## 10. Next up (2026-11-09)
 
-1. Open the tracking issue, commit the work on `response` with the issue
-   number filled in, push with `-u` (§2). (`response` exists locally, on
-   `main` since 2026-11-09; nothing is committed or pushed yet.)
-2. Step 0. The issue's "Needs agreement" list sends Ivan and Paola the open
-   points; follow up in person.
-3. Step 2, the skeleton. Its first test: a default `RouteResult` gets 500
-   (t23).
+Done: tracking issue #9 is open, and the step 1 work is committed and
+pushed (`a374447`, `response` tracks `origin/response`).
+
+1. Commit step 2: `ResponseBuilder.cpp`, `sections/02_skeleton.hpp`,
+   `main.cpp` and this file. 85/85 on 2026-11-09.
+2. Update the pipeline page (§9). The switch, the `return` after it and
+   the catch become real blocks; the handlers stay dashed until their step.
+3. Step 3, StaticFile: Claude writes `sections/03_static.hpp` first (§1),
+   from the Triage cards t1–t4, t18 and t19 (§7).
+4. Step 0, still open. The issue's "Needs agreement" list sends Ivan and
+   Paola the open points; follow up in person.
 
 Later: a pipeline page for the whole server, following one request from
 `recv()` through the parser, the router, `buildResponse` and `toBytes` to

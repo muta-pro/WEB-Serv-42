@@ -1,32 +1,88 @@
 #include "http/ResponseBuilder.hpp"
+#include <stdexcept>
+#include <iostream>
 
-/*
-STEP 1 scaffold: the least that lets tests/ResponseBuilder link. both
-functions answer a default HttpResponse - 200 OK, no headers, no body -
-whatever they are asked.
-
-	that is the "empty stub" of handover §7.1, and a trap worth seeing: a
-	default HttpResponse says success, a default RouteResult says failure
-	(Error, 500). step 1's check only asks that buildResponse can be called.
-	step 2's first test - a default RouteResult must get 500 - fails
-	against this stub, and passes once the switch below exists.
-
-TODO step 2: a switch on route.action with a stub per case, a default that
-answers 500, and one try/catch of std::exception answering makeError(500).
-*/
-HttpResponse buildResponse(const HttpRequest &req, const RouteResult &route)
+static HttpResponse handleCGI(const HttpRequest &req, const RouteResult &route)
 {
 	(void)req;
 	(void)route;
-	return (HttpResponse());
+	throw std::runtime_error("not implemented yet");
+}
+
+static HttpResponse handleDeleteResource(const HttpRequest &req, const RouteResult &route)
+{
+	(void)req;
+	(void)route;
+	throw std::runtime_error("not implemented yet");
+}
+
+static HttpResponse handleDirectory(const HttpRequest &req, const RouteResult &route)
+{
+	(void)req;
+	(void)route;
+	throw std::runtime_error("not implemented yet");
+}
+
+static HttpResponse handleRedirect(const HttpRequest &req, const RouteResult &route)
+{
+	(void)req;
+	(void)route;
+	throw std::runtime_error("not implemented yet");
+}
+
+static HttpResponse handleStaticFile(const HttpRequest &req, const RouteResult &route)
+{
+	(void)req;
+	(void)route;
+	throw std::runtime_error("not implemented yet");
+}
+
+static HttpResponse handleUpload(const HttpRequest &req, const RouteResult &route)
+{
+	(void)req;
+	(void)route;
+	throw std::runtime_error("not implemented yet");
+}
+
+/*a switch on route.action with a stub per case, no default, so if Paola adds an
+unknown RouteAction it will error, and one try/catch of std::exception answering
+makeError(500).
+*/
+HttpResponse buildResponse(const HttpRequest &req, const RouteResult &route)
+{
+	try
+	{
+		switch (route.action)
+		{
+			case RouteAction::CGI:
+				return (handleCGI(req, route));
+			case RouteAction::DeleteResource:
+				return (handleDeleteResource(req, route));
+			case RouteAction::Directory:
+				return (handleDirectory(req, route));
+			case RouteAction::Redirect:
+				return (handleRedirect(req, route));
+			case RouteAction::StaticFile:
+				return (handleStaticFile(req, route));
+			case RouteAction::Upload:
+				return (handleUpload(req, route));
+			case RouteAction::Error:
+				return (buildErrorResponse(route.StatusCode, route));
+		}
+	}
+	catch(const std::exception& e)
+	{
+		std::cerr << "buildResponse: " << e.what() << '\n';
+		return HttpResponse::makeError(500);
+	}
+	return HttpResponse::makeError(500);
 }
 
 /* TODO step 7: errorPageUri, match the location, resolvePath, read the file */
 HttpResponse buildErrorResponse(int statusCode, const RouteResult &route)
 {
-	(void)statusCode;
 	(void)route;
-	return (HttpResponse());
+	return(HttpResponse::makeError(statusCode));
 }
 
 // //added for later response builder

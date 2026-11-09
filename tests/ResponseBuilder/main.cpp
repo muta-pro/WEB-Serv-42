@@ -61,11 +61,13 @@ options, colours and summary. only the checks of harness/ are new.
 #include "harness/Harness.hpp"
 
 #include "sections/01_harness.hpp"
+#include "sections/02_skeleton.hpp"
 
 static const char	*const EXAMPLES =
 	"    ./tester                                   everything\n"
 	"    ./tester harness -f sandbox                only the sandbox tests of step 1\n"
 	"    ./tester 1 -q                              step 1, compact\n"
+	"    ./tester skeleton -f t23                   triage card t23, in step 2\n"
 	"    ./tester -f t3 -v                          triage card t3, input and got\n"
 	"    ./tester --facts conf/default.conf         the location blocks a scene can name\n";
 
@@ -75,6 +77,7 @@ int	main(int argc, char **argv)
 
 	t.suite("response builder tests", EXAMPLES);
 	t.add(1, "harness", "B's inputs, faked: request, config + route, disk; buildResponse links", testHarness);
+	t.add(2, "skeleton", "every route gets an answer: the switch, its default, one try/catch", testSkeleton);
 	Sandbox::clearAll();
 	return (t.run());
 }
