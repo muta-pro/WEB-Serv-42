@@ -2,7 +2,7 @@
 
 An educational HTTP server built in C++. The project focuses on non-blocking network I/O, incremental HTTP parsing, configuration-driven routing, static responses, and CGI.
 
-Project page: <https://muta-pro.github.io/WEB-Serv-42/>
+
 
 ## Current status
 
