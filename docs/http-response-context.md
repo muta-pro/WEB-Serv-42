@@ -227,10 +227,16 @@ drills are in the Field Guide and in the Lab's Build path tab.
   above it.
 - [ ] **3. StaticFile. ← current step.** `stat()` fails: 404; not `S_ISREG`, or
   `access(R_OK)` fails: 403. The whole file read in binary, appended by byte
-  count; a MIME table with a default type; a size limit for files read into
-  memory. Done when tests give 200, 404, and 403 for a folder and a FIFO,
+  count; a MIME table with a default type (`application/octet-stream`,
+  decided 2026-11-09); a size limit for files read into memory (over it:
+  500, decided 2026-11-09; the limit itself is set in the code). Done when tests give 200, 404, and 403 for a folder and a FIFO,
   and live `curl -i localhost:8080/` gives 200, `curl -I` the same headers
-  with no body, and an image opens in a browser.
+  with no body, and an image opens in a browser. **Tests:** section 3
+  `static` (`make static`), written by Claude on 2026-11-09: 33 tests, 27
+  failing against step 2 for the right reason (the StaticFile stub throws,
+  so 500). The 6 that pass already are guards: four "no fd left open", "a
+  GET leaves the file as it was", and the size-limit test, which passes by
+  accident until the handler reads (the stub's 500 is the answer it wants).
 - [ ] **4. Finish `toBytes`.** `Date` as an IMF-fixdate (RFC 9110 §5.6.7),
   from `gmtime`, never `localtime`; 303, 307 and 308 in `reasonFor`; decide
   where `Date` and `Server` get added. Done when `curl -i` shows a `Date`
@@ -292,7 +298,9 @@ as given: each question still holds a lesson (the pointer one above all).
    default `HttpResponse`. That default is a 200 OK, while a default
    `RouteResult` is an Error 500: the stub "succeeds" at everything. So the
    first assertion that fails against it and passes after step 2 is
-   "a default `RouteResult` gets 500" (card t23).
+   "a default `RouteResult` gets 500". Card t23 is a different test (an
+   action the switch has no case for, also 500); this file called the
+   first one t23 until 2026-11-09.
 2. **The mock request.** *Which fields? Parse a target string, or take
    `path` and `query` separately?* **Decided 2026-11-07.**
    `request("GET /files/docs?sort=name")` fills `method`, `target`, `path`,
@@ -350,7 +358,9 @@ make facts FILE=conf/default.conf      # the location blocks and roots a scene c
 make test ARGS="-f t3 -x"              # ./tester options; ./tester --help lists them
 ```
 
-- **Sections so far:** 2 `skeleton` (18 tests, 2026-11-09: Error routes keep
+- **Sections so far:** 3 `static` (33 tests, 2026-11-09: cards t1–t4 and
+  t19, 404 against 403, every byte back in order, the MIME table and its
+  default, the size limit, no fd left open). 2 `skeleton` (18 tests, 2026-11-09: Error routes keep
   C's code, every action gets an answer, an unknown action gets 500, a
   throwing handler gets 500 and the injected header never reaches the
   wire; all green since 2026-11-09). 1 `harness` (67 tests: the request, `resolvePath`,
@@ -387,6 +397,22 @@ make test ARGS="-f t3 -x"              # ./tester options; ./tester --help lists
   `buildResponse` stub, and `HttpResponse.cpp` (`make`, `errorPage`,
   `makeError`, `setHeader`, `reasonFor`, `toBytes`). Each card shows what it
   expects, what the stub answers today, and its test.
+- **Updated 2026-11-09 for step 2** (version 2). The embedded
+  `ResponseBuilder.cpp` is Ravi's step 2. The JS copy has `buildResponse`'s
+  try, switch, catch and the return after them, the six handler stubs that
+  throw, and `buildErrorResponse`'s fallback. In the Pipeline view, `switch`,
+  `catch` and "return after the catch" are real blocks; the handlers hang
+  under `switch`, still dashed (labelled "a stub that throws"); `makeError`
+  called from inside `buildResponse` has its own blocks. A card whose status
+  is already right before its step says what that step still adds (t14,
+  t17, t18, t20) or that it is right for good (t15, t16). Checked the same
+  way as on 2026-11-07: all 30 scenarios gave identical status, bytes and
+  route in the C++ and in the JS copy; all 137 anchors and 19 functions were
+  found; 60 walks (2,642 steps, every block clicked, both views, at 1400 and
+  390 px wide) ran without a JavaScript error. The scripts lived in the
+  session's scratchpad: a Node script that runs the engine in `vm` and
+  writes a C++ main from the page's own scenario data, and a walker appended
+  to a copy of the page, run with `google-chrome --headless=new --dump-dom`.
 - How it works: like the ConfigParser Pipeline page. It embeds the C++ files
   and runs a JavaScript copy of them that records every call. Line numbers
   come from snippets (`ANCHORS` in the trace engine), so code that only
@@ -406,15 +432,16 @@ make test ARGS="-f t3 -x"              # ./tester options; ./tester --help lists
 
 ## 10. Next up (2026-11-09)
 
-Done: tracking issue #9 is open, and the step 1 work is committed and
-pushed (`a374447`, `response` tracks `origin/response`).
+Done: tracking issue #9 is open; steps 1 and 2 are committed and pushed
+(`a374447`, `ca5422a`); the pipeline page shows step 2 (§9).
 
-1. Commit step 2: `ResponseBuilder.cpp`, `sections/02_skeleton.hpp`,
-   `main.cpp` and this file. 85/85 on 2026-11-09.
-2. Update the pipeline page (§9). The switch, the `return` after it and
-   the catch become real blocks; the handlers stay dashed until their step.
-3. Step 3, StaticFile: Claude writes `sections/03_static.hpp` first (§1),
-   from the Triage cards t1–t4, t18 and t19 (§7).
+1. Step 3, StaticFile. The tests are in `sections/03_static.hpp` (§6);
+   Ravi writes `handleStaticFile` (and its helpers: the MIME table, the
+   read loop) until `make static` is green and `make quiet` still is. Then
+   the live `curl` checks of §6, once A's server can serve.
+2. After step 3: update the pipeline page (§9). StaticFile's block stops
+   being dashed; t1–t4 and t19 get their real traces.
+3. Next section to write: step 4, `toBytes` (Date, the missing phrases).
 4. Step 0, still open. The issue's "Needs agreement" list sends Ivan and
    Paola the open points; follow up in person.
 
@@ -433,10 +460,10 @@ Later: a pipeline page for the whole server, following one request from
 - Redirect codes in return: (open)
 - Reason phrases to add: (open)
 - Where Date and Server get added: (open)
-- Default MIME type: (open)
+- Default MIME type: application/octet-stream (2026-11-09)
 - Autoindex layout: (open)
 - Upload name clash: (open)
-- Size limit for files read into memory: (open)
+- Size limit for files read into memory: over it, 500; the limit itself is set in the code (2026-11-09)
 - Local CGI redirect: (open)
 
 ## Agreed with the team

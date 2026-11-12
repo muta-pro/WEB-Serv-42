@@ -60,7 +60,7 @@ inline void	testSkeleton(Tester &t)
 	location. the stub of step 1 answers it with a default HttpResponse:
 	200 OK. this is the test that catches that lie.
 	*/
-	t.test("t23 · a default RouteResult gets 500", "GET / · RouteResult route; (Error, 500, no server, no location)",
+	t.test("a default RouteResult gets 500", "GET / · RouteResult route; (Error, 500, no server, no location)",
 		gives("status = 500\nheader Content-Type = text/html\nbody = " + builtInPage(500)), [] {
 		HttpRequest		req = request("GET /");
 		RouteResult		route;
@@ -115,8 +115,8 @@ inline void	testSkeleton(Tester &t)
 	undefined behaviour (UBSan agrees). it is what buildResponse would see
 	if C added an action to RouteResult.hpp and nobody told the switch.
 	*/
-	responds(t, "an action the switch has no case for gets 500",
-		Scene("GET /").route(static_cast<RouteAction>(99), "/"),
+	responds(t, "t23 · an action the switch has no case for gets 500",
+		Scene("GET /x").route(static_cast<RouteAction>(99), "/"),
 		{"status = 500", "wire = HTTP/1.1 500 Internal Server Error"});
 
 	/* ------------------------------------------------ the catch */

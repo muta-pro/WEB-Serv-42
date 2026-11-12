@@ -1,6 +1,9 @@
 #include "http/ResponseBuilder.hpp"
 #include <stdexcept>
 #include <iostream>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 static HttpResponse handleCGI(const HttpRequest &req, const RouteResult &route)
 {
@@ -30,11 +33,40 @@ static HttpResponse handleRedirect(const HttpRequest &req, const RouteResult &ro
 	throw std::runtime_error("not implemented yet");
 }
 
+static bool readFile(const std::string &path, std::string &body)
+{
+	int	fd = open (path.c_str(), O_RDONLY);
+	if (fd == -1)
+		return false;
+	char	buf[4096];
+	ssize_t n = read(fd, buf, sizeof(buf));
+	while (n > 0)
+	{
+		body.append(buf, n);
+		n = read(fd, buf, sizeof(buf));
+	}
+	close(fd);
+	if (n == -1)
+		return false;
+	return true;
+}
+
 static HttpResponse handleStaticFile(const HttpRequest &req, const RouteResult &route)
 {
 	(void)req;
-	(void)route;
-	throw std::runtime_error("not implemented yet");
+	struct stat info;
+	if (stat(route.filesystemPath.c_str(), &info) != 0)
+		return (buildErrorResponse(404, route));
+	if (!S_ISREG(info.st_mode))
+		return (buildErrorResponse(403, route));
+	if (access(route.filesystemPath.c_str(), R_OK) != 0)
+		return (buildErrorResponse(403, route));
+	std::string body;
+	if(!readFile(route.filesystemPath, body))
+		return buildErrorResponse(500, route);
+	HttpResponse response = HttpResponse::make(200, body);
+	response.setHeader("Content-Type", "text/html");
+	return response;
 }
 
 static HttpResponse handleUpload(const HttpRequest &req, const RouteResult &route)
