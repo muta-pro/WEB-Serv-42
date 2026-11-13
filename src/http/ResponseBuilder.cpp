@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <map>
 
 static HttpResponse handleCGI(const HttpRequest &req, const RouteResult &route)
 {
@@ -51,6 +52,33 @@ static bool readFile(const std::string &path, std::string &body)
 	return true;
 }
 
+/* "./www/html/f.png" -> "image/png" */
+static std::string mimeType(const std::string &path)
+{
+	static const std::map<std::string, std::string> lookupTable {
+		{"html", "text/html"},
+		{"css", "text/css"},
+		{"txt", "text/plain"},
+		{"png", "image/png"},
+		{"jpg", "image/jpeg"},
+		{"jpeg", "image/jpeg"},
+		{"gif", "image/gif"},
+		{"svg", "image/svg+xml"},
+		{"pdf", "application/pdf"},
+		{"json", "application/json"},
+	};
+	size_t slash = path.rfind('/');
+	size_t dot = path.rfind('.');
+	if (dot == std::string::npos || dot < slash)
+		return "application/octet-stream";
+	std::string ext = path.substr(dot + 1);
+	auto it = lookupTable.find(ext);
+	if (it != lookupTable.end())
+		return (it->second);
+	else
+		return ("application/octet-stream");
+}
+
 static HttpResponse handleStaticFile(const HttpRequest &req, const RouteResult &route)
 {
 	(void)req;
@@ -61,11 +89,14 @@ static HttpResponse handleStaticFile(const HttpRequest &req, const RouteResult &
 		return (buildErrorResponse(403, route));
 	if (access(route.filesystemPath.c_str(), R_OK) != 0)
 		return (buildErrorResponse(403, route));
+	static const off_t LIMIT = (64*1024*1024);
+	if (info.st_size > LIMIT)
+		return buildErrorResponse(500, route);
 	std::string body;
 	if(!readFile(route.filesystemPath, body))
 		return buildErrorResponse(500, route);
 	HttpResponse response = HttpResponse::make(200, body);
-	response.setHeader("Content-Type", "text/html");
+	response.setHeader("Content-Type", mimeType(route.filesystemPath));
 	return response;
 }
 
