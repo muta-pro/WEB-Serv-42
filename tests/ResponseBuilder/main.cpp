@@ -63,6 +63,7 @@ options, colours and summary. only the checks of harness/ are new.
 #include "sections/01_harness.hpp"
 #include "sections/02_skeleton.hpp"
 #include "sections/03_static.hpp"
+#include "sections/04_tobytes.hpp"
 
 static const char	*const EXAMPLES =
 	"    ./tester                                   everything\n"
@@ -81,6 +82,7 @@ int	main(int argc, char **argv)
 	t.add(1, "harness", "B's inputs, faked: request, config + route, disk; buildResponse links", testHarness);
 	t.add(2, "skeleton", "every route gets an answer: the switch, its default, one try/catch", testSkeleton);
 	t.add(3, "static", "StaticFile: 200, 404 or 403, every byte, Content-Type, no fd left open", testStatic);
+	t.add(4, "tobytes", "toBytes: Date in GMT, Server, the missing reason phrases", testToBytes);
 	Sandbox::clearAll();
 	return (t.run());
 }

@@ -225,7 +225,7 @@ drills are in the Field Guide and in the Lab's Build path tab.
   `buildResponse: <what()>` to `std::cerr`; `buildErrorResponse` is only
   its fallback, `makeError(statusCode)`, until step 7 adds the custom page
   above it.
-- [ ] **3. StaticFile. ← current step.** `stat()` fails: 404; not `S_ISREG`, or
+- [x] **3. StaticFile.** `stat()` fails: 404; not `S_ISREG`, or
   `access(R_OK)` fails: 403. The whole file read in binary, appended by byte
   count; a MIME table with a default type (`application/octet-stream`,
   decided 2026-11-09); a size limit for files read into memory (over it:
@@ -237,12 +237,38 @@ drills are in the Field Guide and in the Lab's Build path tab.
   so 500). The 6 that pass already are guards: four "no fd left open", "a
   GET leaves the file as it was", and the size-limit test, which passes by
   accident until the handler reads (the stub's 500 is the answer it wants).
-- [ ] **4. Finish `toBytes`.** `Date` as an IMF-fixdate (RFC 9110 §5.6.7),
+  **Done 2026-11-13** (the tests; the live `curl` checks wait for A's
+  server): 33/33, 118/118 overall. Ravi's shape: `handleStaticFile` checks
+  `stat` (404), `!S_ISREG` (403), `access(R_OK)` (403) and `st_size` against
+  a 64 MB `static const off_t LIMIT` (500), then `readFile(path, body)` (an
+  `open`/`read` loop that appends by count and closes on both ways out) and
+  `mimeType(path)` (last dot after the last slash, a `static const std::map`
+  of ten types, `application/octet-stream` otherwise). Every error goes
+  through `buildErrorResponse`. Claude filled in the table's ten entries on
+  Ravi's request.
+- [x] **4. Finish `toBytes`.** `Date` as an IMF-fixdate (RFC 9110 §5.6.7),
   from `gmtime`, never `localtime`; 303, 307 and 308 in `reasonFor`; decide
   where `Date` and `Server` get added. Done when `curl -i` shows a `Date`
   ending in GMT, a test pins `reasonFor(307)`, and the contract tests still
-  pass.
-- [ ] **5. Directory.** No trailing slash: 301 to the path plus "/", query
+  pass. **Decided 2026-11-13:** `toBytes` adds both, on its copy of the
+  headers like `Content-Length`; the date formatting lives in a helper of
+  Ravi's (the tests don't name it); `Server: webserv`; 304 Not Modified
+  joins 303, 307 and 308; 413 becomes Content Too Large. **Tests:** section
+  4 `tobytes` (`make tobytes`), written by Claude on 2026-11-13: 28 tests,
+  20 failing against step 3 for the right reason. A Date test reads the
+  clock just before and after `toBytes` and accepts either second; the
+  reference date is built by hand from `gmtime_r` (pinned by four known
+  dates), and one test sets `TZ=XYZ-14` so `localtime` would show.
+  **Done 2026-11-13** (the tests; the live `curl -i` check waits for A's
+  server): 28/28, 146/146 overall, root contract tests pass. Ravi's shape:
+  `static std::string httpDate(std::time_t)` (`gmtime` + `strftime`), and
+  `headers["Date"]` / `headers["Server"]` on `toBytes`'s copy, before the
+  `Content-Length` `if`. Decided the same day: they **replace** a Date or
+  Server the response already has (`=`, not `emplace`), as Content-Length
+  does, so a CGI script's own never goes out; two tests pin that. Claude
+  rewrote the "Gaps" comment above `toBytes` and made the `=` change on
+  Ravi's request.
+- [ ] **5. Directory. ← current step.** No trailing slash: 301 to the path plus "/", query
   kept. An index file: served like a StaticFile. Autoindex on: a listing
   that hides dot-files, HTML-escapes names, percent-encodes links, adds "/"
   to folders and a `../` link. Otherwise 403. The `DIR*` is closed on every
@@ -358,7 +384,10 @@ make facts FILE=conf/default.conf      # the location blocks and roots a scene c
 make test ARGS="-f t3 -x"              # ./tester options; ./tester --help lists them
 ```
 
-- **Sections so far:** 3 `static` (33 tests, 2026-11-09: cards t1–t4 and
+- **Sections so far:** 4 `tobytes` (28 tests, 2026-11-13: Date now and in
+  GMT on every kind of response, once; Server: webserv, once; the new
+  phrases and the 19 that stay; Content-Length, HEAD and 204 with the new
+  headers there). 3 `static` (33 tests, 2026-11-09: cards t1–t4 and
   t19, 404 against 403, every byte back in order, the MIME table and its
   default, the size limit, no fd left open). 2 `skeleton` (18 tests, 2026-11-09: Error routes keep
   C's code, every action gets an answer, an unknown action gets 500, a
@@ -435,13 +464,12 @@ make test ARGS="-f t3 -x"              # ./tester options; ./tester --help lists
 Done: tracking issue #9 is open; steps 1 and 2 are committed and pushed
 (`a374447`, `ca5422a`); the pipeline page shows step 2 (§9).
 
-1. Step 3, StaticFile. The tests are in `sections/03_static.hpp` (§6);
-   Ravi writes `handleStaticFile` (and its helpers: the MIME table, the
-   read loop) until `make static` is green and `make quiet` still is. Then
-   the live `curl` checks of §6, once A's server can serve.
-2. After step 3: update the pipeline page (§9). StaticFile's block stops
-   being dashed; t1–t4 and t19 get their real traces.
-3. Next section to write: step 4, `toBytes` (Date, the missing phrases).
+1. Commit step 4: `HttpResponse.cpp`, `sections/04_tobytes.hpp`,
+   `main.cpp` and this file. 146/146 and the contract tests on 2026-11-13.
+2. Update the pipeline page (§9) for steps 3 and 4 together. With Date in
+   `toBytes`, its C++-vs-JS byte check needs a fixed clock on both sides.
+3. Step 5, Directory: Claude writes `sections/05_directory.hpp` first,
+   from cards t5–t7. Open decision for it: the autoindex layout.
 4. Step 0, still open. The issue's "Needs agreement" list sends Ivan and
    Paola the open points; follow up in person.
 
@@ -458,8 +486,8 @@ Later: a pipeline page for the whole server, following one request from
 ## Response side: decisions
 
 - Redirect codes in return: (open)
-- Reason phrases to add: (open)
-- Where Date and Server get added: (open)
+- Reason phrases to add: 303 See Other, 304 Not Modified, 307 Temporary Redirect, 308 Permanent Redirect; 413 becomes Content Too Large (2026-11-13)
+- Where Date and Server get added: in toBytes, the date formatted by a helper; Server: webserv; both replace one the response already has (2026-11-13)
 - Default MIME type: application/octet-stream (2026-11-09)
 - Autoindex layout: (open)
 - Upload name clash: (open)

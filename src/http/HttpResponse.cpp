@@ -2,7 +2,8 @@
 #include <algorithm>
 #include <iostream>
 #include <stdexcept>
-#include <utility> //added for move::
+#include <utility>
+#include <ctime>
 
 /*
 suggested cahnge
@@ -16,6 +17,10 @@ std::string HttpResponse::reasonFor(int code)
 		{204, "No Content"},
 		{301, "Moved Permanently"},
 		{302, "Found"},
+		{303, "See Other"},
+		{304, "Not Modified"},
+		{307, "Temporary Redirect"},
+		{308, "Permanent Redirect"},
 		{400, "Bad Request"},
 		{403, "Forbidden"},
 		{404, "Not Found"},
@@ -23,9 +28,9 @@ std::string HttpResponse::reasonFor(int code)
 		{408, "Request Timeout"},
 		{409, "Conflict"},
 		{411, "Length Required"},
-		{413, "Payload Too Large"},
+		{413, "Content Too Large"},
 		{414, "URI Too Long"},
-		{431, "Request Header Fields Too Large"}, //fixed to standard phrase
+		{431, "Request Header Fields Too Large"},
 		{500, "Internal Server Error"},
 		{501, "Not Implemented"},
 		{502, "Bad Gateway"},
@@ -108,69 +113,59 @@ bool HttpResponse::hasHeader(const std::string &name) const
 	return it != headers.end();
 }
 
-/*	Gaps, needs to be fixed down the line:
-	204 and 304 must not carry a body or a Content-Length. Right now a make(204)
-	still emits Content-Length: 0. Some clients tolerate it, some don't.
-	No Date header. RFC 7231 requires origin servers with a clock to send one.
-	Cheap to add: strftime with "%a, %d %b %Y %H:%M:%S GMT" on gmtime.
-	No Server header. Optional, but conventional and free.
+static std::string httpDate(std::time_t when)
+{
+	std::tm *parts = std::gmtime(&when);
+	char	buf[64];
+	std::strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", parts);
+	return std::string(buf);
+}
+
+/*	toBytes as of build path step 4 (2026-11-13).
+	Done:
+	1xx, 204 and 304 carry no body and no Content-Length; every other response
+	gets exactly one Content-Length, counted from the body.
+	Date (from httpDate, always GMT, RFC 9110 §6.6.1) and Server: webserv go on
+	every response. Like Content-Length, they replace whatever the response
+	already had, so a CGI script's own Date or Server never goes out.
+	Still open:
 	No Connection header. Keep-alive is decided from the request, so the caller
-	has to setHeader("Connection", "keep-alive" | "close") before serializing.
-	toBytes can't know.
-	No CRLF sanitization on header values. If you ever build a Location: header
-	from the request path — which you will, for the trailing-slash-directory 301
-	redirect — and the client sends a path containing %0d%0a, they can inject
-	arbitrary headers into your response. Strip \r and \n from values in
+	has to setHeader("Connection", "keep-alive" | "close") before serializing;
+	toBytes can't know. Who does it is to agree with Ivan.
+	Header injection: setHeader throws std::invalid_argument on CR or LF in a
+	value, and buildResponse's catch turns that into a 500. headers is a public
+	map, though, and headers["X"] = ... skips that check: B's code only uses
 	setHeader.
-	No chunked transfer encoding. If a CGI script produces output without
-	declaring a length, HTTP/1.1 wants chunked. Since you buffer the whole body
-	in a std::string anyway, you can dodge this by always computing the length
-	yourself — worth knowing it's a deliberate simplification and not an
-	oversight.
-*/
-
-/* improvements from Ivan:
-goal- make toBytes produce exactly one calculated Content-Length;
-
-make a copy of a header map - remove any supplied lenght, insert the correct lenght;
-I added the lines: so the result won't containt two values
-that usually happens when CGI responses are added;
-
-HeaderMap headers = response.headers;
-
-headers.erase("Content-Lenght");
-headers["Content-Lenght"] = std::to_string(response.body.size());
-
-because server stores entire body in std::String, toBytes know the
-final body size before serialization;
-
-this guarantees exactly one Content-Lenght;
-
-
+	By choice:
+	No chunked transfer encoding. The whole body is in a std::string, so toBytes
+	always knows its length. CGI output without a Content-Length is read to EOF
+	first (subject §IV.3), then counted.
 */
 std::string toBytes(const HttpResponse& response, bool headRequest)
 {
+	HeaderMap headers = response.headers;
 
-  HeaderMap headers = response.headers;
+	const bool stautsAllowaBody = !(response.statusCode >= 100 && response.statusCode < 200)
+		&& response.statusCode != 204 && response.statusCode != 304;
 
-  const bool stautsAllowaBody = !(response.statusCode >= 100 && response.statusCode < 200)
-  	&& response.statusCode != 204 && response.statusCode != 304;
-
-  headers.erase("Content-Length");
-  if (stautsAllowaBody) {
-  	headers["Content-Length"] = std::to_string(response.body.size());
-  }
+	headers.erase("Content-Length");
+	headers["Date"] = httpDate(std::time(nullptr));
+	headers["Server"] = "webserv";
+	if (stautsAllowaBody)
+	{
+		headers["Content-Length"] = std::to_string(response.body.size());
+	}
 //added here line - pervet statusCode/Text disagreement
-  //store only real info(Status code) then derive text during serialization;
-  std::string reason = HttpResponse::reasonFor(response.statusCode);
-  if (reason.empty())
-    reason = "Unknown";
+//store only real info(Status code) then derive text during serialization;
+	std::string reason = HttpResponse::reasonFor(response.statusCode);
+	if (reason.empty())
+		reason = "Unknown";
 
 	std::string output;
 	output += "HTTP/1.1 ";
 	output += std::to_string(response.statusCode);
 	output += " ";
-  output += reason;
+	output += reason;
 	output += "\r\n";
 
 	for (const auto& header : headers)
@@ -189,3 +184,21 @@ std::string toBytes(const HttpResponse& response, bool headRequest)
 	}
 	return output;
 }
+
+/* improvements from Ivan:
+goal- make toBytes produce exactly one calculated Content-Length;
+
+make a copy of a header map - remove any supplied lenght, insert the correct lenght;
+I added the lines: so the result won't containt two values
+that usually happens when CGI responses are added;
+
+HeaderMap headers = response.headers;
+
+headers.erase("Content-Lenght");
+headers["Content-Lenght"] = std::to_string(response.body.size());
+
+because server stores entire body in std::String, toBytes know the
+final body size before serialization;
+
+this guarantees exactly one Content-Lenght;
+*/
