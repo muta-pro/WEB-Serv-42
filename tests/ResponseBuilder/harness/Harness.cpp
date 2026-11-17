@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <dirent.h>
 #include <fcntl.h>
 #include <filesystem>
 #include <sstream>
@@ -39,6 +40,19 @@ static std::string	orEmpty(const std::string &text)
 static bool	startsWith(const std::string &text, const std::string &prefix)
 {
 	return (text.compare(0, prefix.size(), prefix) == 0);
+}
+
+int	openFds()
+{
+	DIR	*dir = opendir("/dev/fd");
+	int	count = 0;
+
+	if (!dir)
+		return (-1);
+	while (readdir(dir))
+		count++;
+	closedir(dir);
+	return (count);
 }
 
 std::string	oneLine(const std::string &bytes)
@@ -677,6 +691,8 @@ std::string	responseFact(const std::string &key, const HttpResponse &response, c
 	}
 	if (key == "body")
 		return (oneLine(response.body));
+	if (startsWith(key, "body has "))
+		return (response.body.find(key.substr(9)) != std::string::npos ? "yes" : "no");
 	if (key == "body size")
 		return (std::to_string(response.body.size()));
 	if (startsWith(key, "body same as "))

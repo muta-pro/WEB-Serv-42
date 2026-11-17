@@ -305,6 +305,7 @@ wrong line shows in red. no facts: it passes when buildResponse returns.
 	                                           written out, so a fact stays one line
 	body size               48
 	body same as <path>     yes                the file in the sandbox, after the request
+	body has <text>         yes                the bytes contain text (yes | no)
 	wire                    HTTP/1.1 404 Not Found   toBytes' first line. a HEAD request
 	                                           gets toBytes(response, true)
 	wire header <Name>      48                 a header line of toBytes' output, e.g.
@@ -322,3 +323,10 @@ std::string	responseFact(const std::string &key, const HttpResponse &response,
 
 /* bytes written out on one line: "a\r\nb" -> "a\\r\\nb", "" -> "(empty)" */
 std::string	oneLine(const std::string &bytes);
+
+/*
+how many file descriptors this process has open: /dev/fd lists them (Linux
+and macOS). -1 if it can't be listed. taken right before and right after a
+call, the two counts say whether the call left something open
+*/
+int			openFds();

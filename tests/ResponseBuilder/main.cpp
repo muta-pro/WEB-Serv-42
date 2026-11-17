@@ -64,6 +64,7 @@ options, colours and summary. only the checks of harness/ are new.
 #include "sections/02_skeleton.hpp"
 #include "sections/03_static.hpp"
 #include "sections/04_tobytes.hpp"
+#include "sections/05_directory.hpp"
 
 static const char	*const EXAMPLES =
 	"    ./tester                                   everything\n"
@@ -83,6 +84,7 @@ int	main(int argc, char **argv)
 	t.add(2, "skeleton", "every route gets an answer: the switch, its default, one try/catch", testSkeleton);
 	t.add(3, "static", "StaticFile: 200, 404 or 403, every byte, Content-Type, no fd left open", testStatic);
 	t.add(4, "tobytes", "toBytes: Date in GMT, Server, the missing reason phrases", testToBytes);
+	t.add(5, "directory", "Directory: the slash redirect, the index, the listing, 403", testDirectory);
 	Sandbox::clearAll();
 	return (t.run());
 }

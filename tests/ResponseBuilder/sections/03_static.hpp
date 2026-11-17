@@ -4,7 +4,6 @@
 #include "../harness/Harness.hpp"
 #include "http/ResponseBuilder.hpp"
 
-#include <dirent.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <functional>
@@ -44,20 +43,6 @@ Content-Length is never the handler's job: toBytes counts the body. the
 HEAD test (t19) checks that the handler builds the full GET response and
 toBytes drops the bytes.
 */
-
-/* how many file descriptors this process has open. /dev/fd lists them, on Linux and on macOS */
-inline int	openFds()
-{
-	DIR	*dir = opendir("/dev/fd");
-	int	count = 0;
-
-	if (!dir)
-		return (-1);
-	while (readdir(dir))
-		count++;
-	closedir(dir);
-	return (count);
-}
 
 /* the 256 byte values, 0 to 255, once each: NUL, CR, LF and 0xff included */
 inline std::string	everyByte()

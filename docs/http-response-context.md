@@ -273,7 +273,16 @@ drills are in the Field Guide and in the Lab's Build path tab.
   that hides dot-files, HTML-escapes names, percent-encodes links, adds "/"
   to folders and a `../` link. Otherwise 403. The `DIR*` is closed on every
   way out. Done when `curl -i localhost:8080/files/docs` gives 301 with
-  `Location: /files/docs/` and `/files/` gives a listing.
+  `Location: /files/docs/` and `/files/` gives a listing. **Decided
+  2026-11-13:** relative links (`href="a.txt"`, `href="docs/"`), as nginx
+  writes them; folders first, then files, each group in byte order; `%XX`
+  with uppercase hex. The page's layout itself stays open. **Tests:**
+  section 5 `directory` (`make directory`), written by Claude on
+  2026-11-13: 27 tests, 22 failing against step 4 for the right reason.
+  The listing tests pin links, their order, hidden entries, escaping and
+  encoding through `links(body)` and `body has`, never the markup around
+  them. The harness gained `body has <text>` and `openFds()` (moved out
+  of section 3) for them.
 - [ ] **6. Redirects.** `Location` from `route.redirectLocation`, the
   configured code, a short HTML body. Done when
   `curl -i localhost:8080/old/` gives 301 with `Location: /`.
@@ -384,7 +393,9 @@ make facts FILE=conf/default.conf      # the location blocks and roots a scene c
 make test ARGS="-f t3 -x"              # ./tester options; ./tester --help lists them
 ```
 
-- **Sections so far:** 4 `tobytes` (28 tests, 2026-11-13: Date now and in
+- **Sections so far:** 5 `directory` (27 tests, 2026-11-13: cards t5–t7,
+  the redirect, the index, the listing, 404 or 403, HEAD, no fd left
+  open). 4 `tobytes` (28 tests, 2026-11-13: Date now and in
   GMT on every kind of response, once; Server: webserv, once; the new
   phrases and the 19 that stay; Content-Length, HEAD and 204 with the new
   headers there). 3 `static` (33 tests, 2026-11-09: cards t1–t4 and
@@ -442,6 +453,30 @@ make test ARGS="-f t3 -x"              # ./tester options; ./tester --help lists
   session's scratchpad: a Node script that runs the engine in `vm` and
   writes a C++ main from the page's own scenario data, and a walker appended
   to a copy of the page, run with `google-chrome --headless=new --dump-dom`.
+- **Updated 2026-11-13 for steps 3 and 4** (version 3). Embedded: Ravi's
+  `ResponseBuilder.cpp` and `HttpResponse.cpp` at step 4, and the harness
+  with `body has` and `openFds`. The JS copy runs `handleStaticFile`,
+  `readFile`, `mimeType` (its table read from the source, like
+  `reasonFor`'s), `httpDate`, and the Date and Server lines of `toBytes`.
+  Each StaticFile card carries an `fs` model of its sandbox, for example
+  `fs: { 'www/html/pipe': { kind: 'fifo' } }`, which the copy's `stat`,
+  `access` and `read` consult and the check script turns into `Sandbox`
+  calls. t18's failing read is staged on the page only (`noScene: true`);
+  the check skips it. `handleStaticFile()` is a real block, with
+  `readFile()`, `mimeType()`, `make()`, `setHeader()` and a dashed
+  `buildErrorResponse()` under it; `httpDate()` sits under `toBytes()`.
+  `toBytes` reads the clock (`opts.now` in the check, the page's load time
+  otherwise); the check masks the Date line on both sides and verifies the
+  C++ one is an IMF-fixdate. Results: 29 of 30 scenarios identical (t18
+  page only), 180 anchors and 22 functions found, 24 phrases and 10 MIME
+  types read from the source, 60 walks (3,096 steps, 1,110 block clicks,
+  both views, 1400 and 390 px) without a JavaScript error. The scratchpad
+  is wiped between sessions, so each update re-reads the page from the
+  artifact and rewrites the scripts: an update script whose every
+  replacement asserts a unique anchor, `check.js` (the JS copy in Node, a
+  generated C++ main through the harness, the comparison), `walker.js`
+  (appended to a copy of the page, run with
+  `google-chrome --headless=new --dump-dom`).
 - How it works: like the ConfigParser Pipeline page. It embeds the C++ files
   and runs a JavaScript copy of them that records every call. Line numbers
   come from snippets (`ANCHORS` in the trace engine), so code that only
@@ -464,12 +499,16 @@ make test ARGS="-f t3 -x"              # ./tester options; ./tester --help lists
 Done: tracking issue #9 is open; steps 1 and 2 are committed and pushed
 (`a374447`, `ca5422a`); the pipeline page shows step 2 (§9).
 
-1. Commit step 4: `HttpResponse.cpp`, `sections/04_tobytes.hpp`,
-   `main.cpp` and this file. 146/146 and the contract tests on 2026-11-13.
-2. Update the pipeline page (§9) for steps 3 and 4 together. With Date in
-   `toBytes`, its C++-vs-JS byte check needs a fixed clock on both sides.
-3. Step 5, Directory: Claude writes `sections/05_directory.hpp` first,
-   from cards t5–t7. Open decision for it: the autoindex layout.
+1. Step 4 is committed and pushed (`3e9dc62`). Commit
+   `sections/05_directory.hpp`, `main.cpp`, the harness and this file with
+   step 5.
+2. Step 5, Directory. The tests are in `sections/05_directory.hpp` (§6);
+   Ravi writes `handleDirectory` and its helpers (the listing, HTML
+   escaping, percent-encoding) until `make directory` is green and
+   `make quiet` still is. Open with Paola: who sends the slash redirect.
+3. After step 5: update the pipeline page (§9: Directory's block, cards
+   t5–t7 with `fs` models of their folders) and write step 6's section
+   (Redirects, card t8).
 4. Step 0, still open. The issue's "Needs agreement" list sends Ivan and
    Paola the open points; follow up in person.
 
@@ -489,7 +528,7 @@ Later: a pipeline page for the whole server, following one request from
 - Reason phrases to add: 303 See Other, 304 Not Modified, 307 Temporary Redirect, 308 Permanent Redirect; 413 becomes Content Too Large (2026-11-13)
 - Where Date and Server get added: in toBytes, the date formatted by a helper; Server: webserv; both replace one the response already has (2026-11-13)
 - Default MIME type: application/octet-stream (2026-11-09)
-- Autoindex layout: (open)
+- Autoindex layout: relative links, folders first then files, each in byte order, uppercase %XX; the markup around them is open (2026-11-13)
 - Upload name clash: (open)
 - Size limit for files read into memory: over it, 500; the limit itself is set in the code (2026-11-09)
 - Local CGI redirect: (open)

@@ -1,10 +1,15 @@
 #include "http/ResponseBuilder.hpp"
+#include "config/LocationConfig.hpp"
 #include <stdexcept>
 #include <iostream>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <map>
+#include <dirent.h>
+#include <algorithm>
+#include <vector>
+#include <cctype>
 
 static HttpResponse handleCGI(const HttpRequest &req, const RouteResult &route)
 {
@@ -14,13 +19,6 @@ static HttpResponse handleCGI(const HttpRequest &req, const RouteResult &route)
 }
 
 static HttpResponse handleDeleteResource(const HttpRequest &req, const RouteResult &route)
-{
-	(void)req;
-	(void)route;
-	throw std::runtime_error("not implemented yet");
-}
-
-static HttpResponse handleDirectory(const HttpRequest &req, const RouteResult &route)
 {
 	(void)req;
 	(void)route;
@@ -98,6 +96,114 @@ static HttpResponse handleStaticFile(const HttpRequest &req, const RouteResult &
 	HttpResponse response = HttpResponse::make(200, body);
 	response.setHeader("Content-Type", mimeType(route.filesystemPath));
 	return response;
+}
+
+/* "<b>&" -> "&lt;b&gt;&amp;": a name as text on the page */
+static std::string htmlEscape(const std::string &text)
+{
+	std::string out;
+	char c;
+	for (size_t i = 0; i < text.length(); i++)
+	{
+		c = text[i];
+		if (c == '&')
+			out += "&amp;";
+		else if (c == '<')
+			out += "&lt;";
+		else if (c == '>')
+			out += "&gt;";
+		else if (c == '"')
+			out += "&quot;";
+		else
+			out += c;
+	}
+	return out;
+}
+
+/* "a b.txt" -> "a%20b.txt": a name as a URL in a link */
+static std::string percentEncode(const std::string &name)
+{
+	static const char HEX[] = "0123456789ABCDEF";
+	std::string out;
+	for (unsigned char c : name)
+	{
+		if (std::isalnum(c) || c == '-' || c == '.' || c == '_' || c == '~')
+			out += c;
+		else
+		{
+			out += '%';
+			out += HEX[c >> 4];
+			out += HEX[c & 15];
+		}
+	}
+	return out;
+}
+
+/* the folder dir (ends in "/") as an HTML page in `page`; false if it can't be read */
+static bool listDirectory(const std::string &dir, std::string &page)
+{
+	DIR *d = opendir(dir.c_str());
+	if (!d)
+		return false;
+	std::vector<std::string> folders, files;
+	struct dirent *entry;
+	while ((entry = readdir(d)) != NULL)
+	{
+		std::string name = entry->d_name;
+		if (name[0] == '.')
+			continue;
+		struct stat info;
+		if (stat((dir + name).c_str(), &info) == 0 && S_ISDIR(info.st_mode))
+			folders.push_back(name);
+		else
+			files.push_back(name);
+	}
+	closedir(d);
+	std::sort(folders.begin(), folders.end());
+	std::sort(files.begin(), files.end());
+	page += "<html><head><title>Index</title></head><body><h1>Index</h1>";
+	page += "<a href=\"../\">../</a><br>";
+	for (const std::string &name : folders)
+		page += "<a href=\"" + percentEncode(name) + "/\">" + htmlEscape(name) + "/</a><br>";
+	for (const std::string &name : files)
+		page += "<a href=\"" + percentEncode(name) + "\">"  + htmlEscape(name) + "</a><br>";
+	page += "</body></html>";
+	return true;
+}
+
+static HttpResponse handleDirectory(const HttpRequest &req, const RouteResult &route)
+{
+	if (req.path.empty() || req.path.back() != '/')
+	{
+		std::string location = req.path + "/" + (req.query.empty() ? "" : "?" + req.query);
+		HttpResponse r = HttpResponse::make(301, "<html><body><h1>301 Moved Permanently</h1></body></html>");
+		r.setHeader("Location", location);
+		r.setHeader("Content-Type", "text/html");
+		return r;
+	}
+	struct stat info;
+	if (stat(route.filesystemPath.c_str(), &info) != 0)
+		return (buildErrorResponse(404, route));
+	std::string dir = route.filesystemPath;
+	if (dir.back() != '/')
+		dir += '/';
+	std::string indexPath = dir + route.loc->index;
+	if (stat(indexPath.c_str(), &info) == 0)
+	{
+		RouteResult asFile = route;
+		asFile.filesystemPath = indexPath;
+		return handleStaticFile(req, asFile);
+	}
+	if (!route.loc->autoindex)
+		return buildErrorResponse(403, route);
+	if (access(dir.c_str(), R_OK) != 0)
+		return buildErrorResponse(403, route);
+	std::string page;
+	if (!listDirectory(dir, page))
+		return buildErrorResponse(500, route);
+	HttpResponse r = HttpResponse::make(200, page);
+	r.setHeader("Content-Type", "text/html");
+	return r;
 }
 
 static HttpResponse handleUpload(const HttpRequest &req, const RouteResult &route)
