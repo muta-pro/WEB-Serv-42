@@ -93,8 +93,20 @@ inline void	testLocations(Tester &t)
 	field("cgi", "/cgi/ { cgi py /usr/bin/python3; }", fails(1, "expected an extension starting with '.', not 'py'"));
 	field("return", "/old/ { return 301 /; }", gives("301 /"));
 	field("return", "/old/ { return 302 http://example.com/new; }", gives("302 http://example.com/new"));
-	field("return", "/old/ { return 300 /a; }", gives("300 /a"));
-	field("return", "/old/ { return 399 /a; }", gives("399 /a"));
+	field("return", "/old/ { return 303 /a; }", gives("303 /a"));
+	field("return", "/old/ { return 307 /a; }", gives("307 /a"));
+	field("return", "/old/ { return 308 /a; }", gives("308 /a"));
+	/*
+	3xx, but not "go to this URL" (RFC 9110 §15.4): 300 offers a choice,
+	304 is a cache answer that never has a body, 305 and 306 are dead.
+	refused at startup, so the response builder only ever sees the five
+	(decided 2026-11-17, response build path step 6)
+	*/
+	field("return", "/old/ { return 300 /a; }", fails(1, "status code '300' is not a redirect (301, 302, 303, 307 or 308)"));
+	field("return", "/old/ { return 304 /a; }", fails(1, "status code '304' is not a redirect (301, 302, 303, 307 or 308)"));
+	field("return", "/old/ { return 305 /a; }", fails(1, "status code '305' is not a redirect (301, 302, 303, 307 or 308)"));
+	field("return", "/old/ { return 306 /a; }", fails(1, "status code '306' is not a redirect (301, 302, 303, 307 or 308)"));
+	field("return", "/old/ { return 399 /a; }", fails(1, "status code '399' is not a redirect (301, 302, 303, 307 or 308)"));
 	field("return", "/old/ { return 200 /a; }", fails(1, "status code '200' is not between 300 and 399"));
 	field("return", "/old/ { return 404 /a; }", fails(1, "status code '404' is not between 300 and 399"));
 	field("return", "/old/ { return 30x /a; }", fails(1, "invalid number in '30x'"));

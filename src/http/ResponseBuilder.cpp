@@ -28,8 +28,12 @@ static HttpResponse handleDeleteResource(const HttpRequest &req, const RouteResu
 static HttpResponse handleRedirect(const HttpRequest &req, const RouteResult &route)
 {
 	(void)req;
-	(void)route;
-	throw std::runtime_error("not implemented yet");
+	std::string page = "<html><body><h1>" + std::to_string(route.StatusCode)
+		+ " " + HttpResponse::reasonFor(route.StatusCode) + "</h1></body></html>";
+	HttpResponse r = HttpResponse::make(route.StatusCode, page);
+	r.setHeader("Location", route.redirectLocation);
+	r.setHeader("Content-Type", "text/html");
+	return r;
 }
 
 static bool readFile(const std::string &path, std::string &body)

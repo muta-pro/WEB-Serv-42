@@ -227,8 +227,9 @@ static bool	parseOnOff(const Token &arg)
 }
 
 /*
-error_page takes 300-599, return takes 300-399. a status code is always
-three digits, so 999 is ceiling enough for parseNumber.
+error_page takes 300-599, return takes only the five redirect codes, checked in
+the return branch. a status code is always three digits, so 999 is ceiling
+enough for parseNumber.
 */
 static int	parseStatusCode(const Token &arg, int lo, int hi)
 {
@@ -342,6 +343,9 @@ static void	parseLocationDirective(Cursor &cur, const Token &name, RawLocation &
 	{
 		std::vector<Token> args = cur.readArgs(name, 2, 2);
 		raw.own.redirectCode = parseStatusCode(args[0], 300, 399);
+		int code = raw.own.redirectCode;
+		if (code != 301 && code != 302 && code != 303 && code != 307 && code != 308)
+			throw ConfigError(name.line, "status code '" + std::to_string(code) + "' is not a redirect (301, 302, 303, 307 or 308)");
 		raw.own.redirect = args[1].text;
 	}
 	else if (name.text == "internal")

@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "name": "webserv",
+            "compilerPath": "/usr/bin/c++",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-clang-x64",
+            "includePath": [
+                "${workspaceFolder}/includes"
+            ]
+        }
+    ],
+    "version": 4
+}

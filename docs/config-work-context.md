@@ -6,7 +6,7 @@
 > truth for code. If anything here disagrees with the code, trust the code and
 > say so.
 
-Last updated: 2026-10-28 · Branch: `config`
+Last updated: 2026-11-17 · Branch: `config`
 
 ---
 
@@ -237,7 +237,8 @@ Ivan's recent changes (on `feature/phase-0`, 2026-09-22 to 09-28):
   - empty root
   - two locations with the same path
   - unknown size suffix (`10X`)
-  - `return` code outside 3xx
+  - `return` code outside 3xx, or a 3xx that isn't a redirect (only 301,
+    302, 303, 307 and 308 pass; added 2026-11-17)
   - no server block at all
 
 ## 8. How `std::optional` solves inheritance order
@@ -337,6 +338,8 @@ test suite (§12).
       - `parseSize`: k/m/g suffixes, rejects `10X`, guards against overflow
       - `parseOnOff`
       - `parseStatusCode(lo, hi)`: 300–599 for error_page, 3xx for return
+        (the `return` branch then keeps only the five redirect codes,
+        2026-11-17)
       - `parseMethods`: GET/HEAD/POST/DELETE into a `std::set<HttpMethod>`,
         case-sensitive
 - [x] **6. The remaining server-level directives.**

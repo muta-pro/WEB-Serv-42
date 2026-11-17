@@ -6,7 +6,7 @@
 > and how Ravi works. The repo is the source of truth for code. If anything
 > here disagrees with the code, trust the code and say so.
 
-Last updated: 2026-11-09 · Branch: `response` (made from `main`) · Issue: #9
+Last updated: 2026-11-17 · Branch: `response` (made from `main`) · Issue: #9
 
 ---
 
@@ -142,19 +142,20 @@ C. That is the precondition of `resolvePath`; B doesn't redo it.
 
 ## 4. State of the response side
 
-From the Field Guide's inventory (repo at `main` 37e497c, `config` a2dbb72):
+From the Field Guide's inventory (repo at `main` 37e497c, `config` a2dbb72).
+Rows updated 2026-11-17 for steps 2–6:
 
 | Piece | State | Notes |
 |---|---|---|
 | `HttpResponse` | done | `statusCode`, `headers` (case-insensitive `HeaderMap`), `body` (`std::string`, binary-safe) |
 | `make(code, body)` | done | |
 | `makeError(code)` | done | the built-in `<html><body><h1>404 Not Found</h1></body></html>` with `Content-Type: text/html`. The fallback whenever a custom page fails |
-| `reasonFor(code)` | partly | 20 codes. 303, 304, 307 and 308 are missing and go out as "Unknown". 413 still says "Payload Too Large" (RFC 9110 calls it "Content Too Large") |
+| `reasonFor(code)` | done | 24 codes. Step 4 added 303, 304, 307 and 308 and renamed 413 Content Too Large |
 | `setHeader(name, value)` | done | throws `std::invalid_argument` on an empty name, a name with whitespace, `:`, CR or LF, or a value with CR or LF. Blocks header injection, and it is a throw B must catch |
 | `toBytes(response, headRequest)` | done, tested | status line, CRLF headers, one `Content-Length` computed from the body (a supplied one is removed), no body and no length for 1xx, 204 and 304, HEAD keeps the length and drops the bytes. Pinned by `tests/contracts.cpp` lines 67–78 |
-| `buildResponse`, `buildErrorResponse` | stub | the step 1 scaffold in `ResponseBuilder.cpp`: both return a default `HttpResponse` (200 OK, no headers, no body) so the test suite links. The old commented-out sketch is kept below them |
-| `Date`, `Server` headers | missing | `Date` is required on every 2xx, 3xx and 4xx response (RFC 9110 §6.6.1) |
-| files, folders, autoindex, error pages, uploads, DELETE, CGI output, MIME types | missing | the build path, §6 |
+| `buildResponse`, `buildErrorResponse` | partly | the switch and catch from step 2. StaticFile, Directory and Redirect are done (steps 3, 5, 6); CGI, DeleteResource and Upload still throw. `buildErrorResponse` is only its `makeError` fallback until step 7 |
+| `Date`, `Server` headers | done | added by `toBytes` (step 4) |
+| error pages, uploads, DELETE, CGI output | missing | steps 7–9, §6 |
 
 Flagged, not fixed:
 - **Doc vs header.** The architecture doc calls three `RouteResult` members
@@ -167,7 +168,7 @@ Flagged, not fixed:
 - **The book's Part 8 (2026-09-23)** shows three `toBytes` bugs: no
   `Content-Length`, a supplied one going out unchanged, and 304 without a
   reason phrase. The Field Guide's newer inventory has the first two fixed
-  and pinned by the contract tests; the 304 phrase is still missing.
+  and pinned by the contract tests; step 4 added the 304 phrase.
 
 ## 5. Subject rules that shape B
 
@@ -268,7 +269,7 @@ drills are in the Field Guide and in the Lab's Build path tab.
   does, so a CGI script's own never goes out; two tests pin that. Claude
   rewrote the "Gaps" comment above `toBytes` and made the `=` change on
   Ravi's request.
-- [ ] **5. Directory. ← current step.** No trailing slash: 301 to the path plus "/", query
+- [x] **5. Directory.** No trailing slash: 301 to the path plus "/", query
   kept. An index file: served like a StaticFile. Autoindex on: a listing
   that hides dot-files, HTML-escapes names, percent-encodes links, adds "/"
   to folders and a `../` link. Otherwise 403. The `DIR*` is closed on every
@@ -283,10 +284,50 @@ drills are in the Field Guide and in the Lab's Build path tab.
   encoding through `links(body)` and `body has`, never the markup around
   them. The harness gained `body has <text>` and `openFds()` (moved out
   of section 3) for them.
-- [ ] **6. Redirects.** `Location` from `route.redirectLocation`, the
+  **Done 2026-11-17** (`76efd01`; the live `curl` checks wait for A's
+  server): 27/27, 173/173 overall. Ravi's shape: `handleDirectory` answers
+  the slash redirect itself (301, `Location` = path + "/" plus `?query`, the
+  page written out), then `stat` (404), `dir + loc->index` served by
+  `handleStaticFile` on a copy of the route, autoindex off or
+  `access(R_OK)` failing: 403, `listDirectory` failing: 500.
+  `listDirectory(dir, page)` reads with `opendir`/`readdir`, skips names
+  starting with a dot, splits folders (by `stat`) from files, sorts each
+  with `std::sort`, and builds the page with `percentEncode` (unreserved
+  characters kept, `%XX` otherwise) for links and `htmlEscape`
+  (`& < > "`) for names.
+- [x] **6. Redirects.** `Location` from `route.redirectLocation`, the
   configured code, a short HTML body. Done when
-  `curl -i localhost:8080/old/` gives 301 with `Location: /`.
-- [ ] **7. Error pages.** `buildErrorResponse`: `errorPageUri`, match the
+  `curl -i localhost:8080/old/` gives 301 with `Location: /`. **Decided
+  2026-11-17:** the code and the target come from the route
+  (`route.StatusCode`, `route.redirectLocation`), never from `route.loc`:
+  RouteResult's field rules make StatusCode the intended status, and the
+  router may one day send a Redirect from a location with no `return` (the
+  folder slash redirect, still open with Paola). `return` takes only 301,
+  302, 303, 307 and 308; the parser refuses the rest of 3xx at startup (300
+  offers a choice, 304 is a cache answer with no body, 305 and 306 are
+  dead), so the handler never sees them. The target goes out as
+  configured, relative or absolute, with nothing of the request added (no
+  query, no rest of the path), as nginx's `return` does; `handleDirectory`'s
+  slash redirect is the opposite, built from the request. No shared helper
+  with `handleDirectory`'s 301 (Ravi's call). The page is built in the
+  handler, not by `makeError`: the bytes would be the same today, but the
+  comments above `makeError` plan error-only behaviour there (a custom
+  `error_page`, `Connection: close`). **Tests:** section 6 `redirect`
+  (`make redirect`), written by Claude on 2026-11-17: 13 tests, 12 failing
+  against step 5 for the right reason (the Redirect stub throws, so 500).
+  The one that passes does so by accident until the handler exists: a bare
+  LF in the target must give 500, which the stub already gives. The config
+  suite gained five failing `return` tests in section 7 (300, 304, 305,
+  306, 399) and `conf/invalid/return_not_a_redirect.conf`; 200 and 404 keep
+  the old "not between 300 and 399" message. **Done 2026-11-17** (the live
+  `curl -i` check waits for A's server): 13/13, 186/186 overall, config
+  suite 477/477. Ravi's shape: `handleRedirect` does `(void)req;`, builds
+  `<html><body><h1>CODE PHRASE</h1></body></html>` with `reasonFor`, then
+  `make`, `setHeader("Location", ...)` and `Content-Type: text/html`. The
+  parser's `return` branch keeps `parseStatusCode(args[0], 300, 399)`, then
+  throws `ConfigError` with "status code 'N' is not a redirect (301, 302,
+  303, 307 or 308)" for anything outside the five.
+- [ ] **7. Error pages. ← current step.** `buildErrorResponse`: `errorPageUri`, match the
   location, `resolvePath`, read the file. Keep the original code; one hop,
   then `makeError`; a null `route.server` goes straight to `makeError`.
   `Allow` on every 405 (from `loc->allowedMethods`, enum values mapped to
@@ -477,6 +518,9 @@ make test ARGS="-f t3 -x"              # ./tester options; ./tester --help lists
   generated C++ main through the harness, the comparison), `walker.js`
   (appended to a copy of the page, run with
   `google-chrome --headless=new --dump-dom`).
+- **Not yet updated for steps 5 and 6** (2026-11-17). The page still shows
+  step 4: `handleDirectory` and `handleRedirect` are dashed blocks, and cards
+  t5–t8 still answer as the step 4 stubs do.
 - How it works: like the ConfigParser Pipeline page. It embeds the C++ files
   and runs a JavaScript copy of them that records every call. Line numbers
   come from snippets (`ANCHORS` in the trace engine), so code that only
@@ -494,23 +538,25 @@ make test ARGS="-f t3 -x"              # ./tester options; ./tester --help lists
   (23 cards, 7 bench) gave identical bytes, all 115 anchors were found, and
   60 walks (every step, both views) ran without a JavaScript error.
 
-## 10. Next up (2026-11-09)
+## 10. Next up (2026-11-17)
 
-Done: tracking issue #9 is open; steps 1 and 2 are committed and pushed
-(`a374447`, `ca5422a`); the pipeline page shows step 2 (§9).
+Done: steps 1–6 pass (§6). Steps 1–5 are committed (`76efd01` is step 5).
 
-1. Step 4 is committed and pushed (`3e9dc62`). Commit
-   `sections/05_directory.hpp`, `main.cpp`, the harness and this file with
-   step 5.
-2. Step 5, Directory. The tests are in `sections/05_directory.hpp` (§6);
-   Ravi writes `handleDirectory` and its helpers (the listing, HTML
-   escaping, percent-encoding) until `make directory` is green and
-   `make quiet` still is. Open with Paola: who sends the slash redirect.
-3. After step 5: update the pipeline page (§9: Directory's block, cards
-   t5–t7 with `fs` models of their folders) and write step 6's section
-   (Redirects, card t8).
-4. Step 0, still open. The issue's "Needs agreement" list sends Ivan and
-   Paola the open points; follow up in person.
+1. Commit step 6: `src/http/ResponseBuilder.cpp`,
+   `tests/ResponseBuilder/sections/06_redirect.hpp` and `main.cpp`; the
+   config side (`src/config/ConfigParser.cpp`,
+   `tests/ConfigParser/sections/07_locations.hpp`,
+   `conf/invalid/return_code_range.conf`,
+   `conf/invalid/return_not_a_redirect.conf`); this file and
+   `config-work-context.md`.
+2. Update the pipeline page for steps 5 and 6 (§9): Directory's and
+   Redirect's blocks, `listDirectory` and its helpers, cards t5–t8 with `fs`
+   models of their folders.
+3. Step 7, error pages: Claude writes the test section first.
+4. Step 0, still open: the "Needs agreement" list for Ivan and Paola. The
+   slash redirect (Paola) now touches steps 5 and 6: if the router sends it
+   as a Redirect, `handleRedirect` already serves it (a test pins that), and
+   `handleDirectory`'s own 301 becomes unreachable.
 
 Later: a pipeline page for the whole server, following one request from
 `recv()` through the parser, the router, `buildResponse` and `toBytes` to
@@ -519,12 +565,12 @@ Later: a pipeline page for the whole server, following one request from
 
 ---
 
-<!-- Decision log. In the Lab: Decision log → Copy Markdown, then paste it
-     over everything between this comment and the end-marker comment. -->
-
 ## Response side: decisions
 
-- Redirect codes in return: (open)
+Edit this list directly; it is the only copy. (Until 2026-11-17 it was meant
+to be pasted from the Lab's Decision log tab, which was never kept up.)
+
+- Redirect codes in return: 301, 302, 303, 307 and 308 only, the rest of 3xx refused at startup; the handler takes the code and the target from the route, and the target goes out as configured (2026-11-17)
 - Reason phrases to add: 303 See Other, 304 Not Modified, 307 Temporary Redirect, 308 Permanent Redirect; 413 becomes Content Too Large (2026-11-13)
 - Where Date and Server get added: in toBytes, the date formatted by a helper; Server: webserv; both replace one the response already has (2026-11-13)
 - Default MIME type: application/octet-stream (2026-11-09)
@@ -542,5 +588,3 @@ Later: a pipeline page for the whole server, following one request from
 - [ ] Location matching for error pages: a shared matchLocation(server, uri), or a GET through routeRequest (Paola)
 - [ ] Uploads and DELETE are yours to carry out, and what filesystemPath means for an Upload: the folder or the final file (Paola)
 - [ ] The slash redirect for folders: the router, or you on RouteAction::Directory (Paola)
-
-<!-- end of Lab export -->
