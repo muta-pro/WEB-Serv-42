@@ -18,7 +18,7 @@ bool Listen::operator==(const Listen &other) const
 
 /* ----------------------------------------------------------- LocationConfig */
 
-bool LocationConfig::allowsMethod(const std::string &method) const
+bool LocationConfig::allowsMethod(HttpMethod method) const
 {
 	return (allowedMethods.count(method) != 0);
 }
@@ -40,8 +40,8 @@ bool LocationConfig::acceptsUploads() const
 
 void LocationConfig::grantImplicitHead()
 {
-	if (allowedMethods.count("GET") != 0)
-		allowedMethods.insert("HEAD");
+	if (allowedMethods.count(HttpMethod::Get) != 0)
+		allowedMethods.insert(HttpMethod::Head);
 }
 
 /*

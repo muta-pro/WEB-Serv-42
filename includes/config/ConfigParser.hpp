@@ -35,7 +35,7 @@ struct ServerDefaults {
 	std::string				index = "index.html";
 	bool					autoindex = false;
 	size_t					clientMaxBody = 1048576;
-	std::set<std::string>	allowedMethods = {"GET", "HEAD"};
+	std::set<HttpMethod>	allowedMethods = {HttpMethod::Get, HttpMethod::Head};
 };
 
 /*
