@@ -42,7 +42,12 @@ Connection &Connection::operator=(Connection &&other) noexcept
 	return *this;
 }
 
-void Connection::closeOwnedFd() noexcept { if (_fd >= 0) { close(_fd); _fd = -1; } }
+void Connection::closeOwnedFd() noexcept {
+	if (_fd >= 0) {
+		close(_fd);
+		_fd = -1;
+	}
+}
 int Connection::fd() const noexcept { return _fd; }
 ConnectionState Connection::state() const noexcept { return _stateLoop; }
 void Connection::setState(ConnectionState value) noexcept { _stateLoop = value; }

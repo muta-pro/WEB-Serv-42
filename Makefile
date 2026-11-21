@@ -17,7 +17,7 @@ SRCS_FILES = main.cpp \
 				http/ResponseBuilder.cpp \
 				network/ServerManager.cpp \
 				network/Socket.cpp \
-				network/Client.cpp \
+				network/Connection.cpp \
 				cgi/CgiHandler.cpp
 
 SRCS = $(addprefix $(SRC_DIR)/, $(SRCS_FILES))
@@ -54,7 +54,7 @@ check-headers:
 		$(CXX) $(CXXFLAGS) $(INCLUDES) -x c++ -fsyntax-only -; \
 	done
 
-$(TEST_NAME): tests/contracts.cpp src/http/HttpRequest.cpp src/http/HttpResponse.cpp src/network/Client.cpp src/cgi/CgiHandler.cpp
+$(TEST_NAME): tests/contracts.cpp src/http/HttpRequest.cpp src/http/HttpResponse.cpp src/network/Connection.cpp src/cgi/CgiHandler.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $^ -o $@
 
 test: all check-headers $(TEST_NAME)

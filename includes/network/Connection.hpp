@@ -6,7 +6,7 @@ lastActivity useful to check for timeout, to disconnect the client
 
 EACH accepted client FD is owned by exactly one connection;
 Destroying that connection closes the FD.
-other modules may use FD with recv(), send(), epoll(), but necer call close() on it;
+other modules may use FD with recv(), send(), epoll(), but never call close() on it;
 event loop owns connection obj, which owns the FD;
 listening sockets and CGI pipe FDs have separate owners; dont belong to client Connection;
 */
@@ -64,14 +64,14 @@ class Connection {
 	private:
 		void closeOwnedFd() noexcept;
 
-		int				_fd; //socket ID for recv()/send()
+		int						_fd; //socket ID for recv()/send()
 		std::string		_readBuff; //for raw bytes from recv()
 		std::string		_writeBuff; //empty the buffer using send()
 		ConnectionState	_stateLoop; //communicates to the loop
-		time_t			_lastActivity; //update time on every clients send/recv
+		time_t				_lastActivity; //update time on every clients send/recv
 		std::size_t		_bytesSent;
 		std::size_t		_parseOffset;
-		bool			_keepAlive;
+		bool					_keepAlive;
 };
 
 #endif
