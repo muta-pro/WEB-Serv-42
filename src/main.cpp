@@ -17,7 +17,8 @@ int main(int argc, char **argv)
 		ServerManager manager;
 		manager.openListeners(servers);
 		for (const Listener &listener : manager.listeners()) {
-			std::cout << "Opened " << listener.address.host << ':' << listener.address.port << " for " << listener.candidates.size() << " server blok(s)\n";
+			std::cout << "Opened " << listener.address.host << ':'
+			 << listener.address.port << " for " << listener.candidates.size() << " server blok(s)\n";
 		}
 		std::cout << "Startup check passed.Listeners closed. Loop not implemented yet\n" << std::endl;
 	}
