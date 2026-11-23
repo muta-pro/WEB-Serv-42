@@ -13,6 +13,7 @@ Connection::Connection(int client_fd)
 
 Connection::~Connection() noexcept { closeOwnedFd(); }
 
+//move constructor: transfers ownership by assigning -1; moves buffer and connection state
 Connection::Connection(Connection &&other) noexcept
 	: _fd(other._fd), _readBuff(std::move(other._readBuff)),
 	  _writeBuff(std::move(other._writeBuff)), _stateLoop(other._stateLoop),

@@ -50,7 +50,7 @@ Socket Socket::createListener(const Listen &address)
 {
 	const std::string port = std::to_string(address.port);
 	const std::string endpoint = address.host + ":" + port;
-
+	//struct access for addr info specs
 	addrinfo hints{};
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
@@ -88,3 +88,6 @@ Socket Socket::createListener(const Listen &address)
 	throw std::runtime_error("listen " + endpoint + ": " + lastError);
 }
 
+/*
+OS needs an address structure in a format that its networking functions understand.
+*/
