@@ -66,6 +66,7 @@ options, colours and summary. only the checks of harness/ are new.
 #include "sections/04_tobytes.hpp"
 #include "sections/05_directory.hpp"
 #include "sections/06_redirect.hpp"
+#include "sections/07_errors.hpp"
 
 static const char	*const EXAMPLES =
 	"    ./tester                                   everything\n"
@@ -74,6 +75,7 @@ static const char	*const EXAMPLES =
 	"    ./tester skeleton -f t23                   triage card t23, in step 2\n"
 	"    ./tester static -f Content-Type -q         step 3's MIME table only\n"
 	"    ./tester redirect -f t8                    triage card t8, in step 6\n"
+	"    ./tester errors -f internal                step 7's internal location only\n"
 	"    ./tester -f t3 -v                          triage card t3, input and got\n"
 	"    ./tester --facts conf/default.conf         the location blocks a scene can name\n";
 
@@ -88,6 +90,7 @@ int	main(int argc, char **argv)
 	t.add(4, "tobytes", "toBytes: Date in GMT, Server, the missing reason phrases", testToBytes);
 	t.add(5, "directory", "Directory: the slash redirect, the index, the listing, 403", testDirectory);
 	t.add(6, "redirect", "Redirect: the route's code, Location as configured, a short page", testRedirect);
+	t.add(7, "errors", "error pages: the server's page, one hop, internal, Allow, Connection: close", testErrors);
 	Sandbox::clearAll();
 	return (t.run());
 }

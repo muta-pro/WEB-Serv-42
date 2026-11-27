@@ -6,7 +6,7 @@
 > and how Ravi works. The repo is the source of truth for code. If anything
 > here disagrees with the code, trust the code and say so.
 
-Last updated: 2026-11-17 · Branch: `response` (made from `main`) · Issue: #9
+Last updated: 2026-11-25 · Branch: `response` (made from `main`) · Issue: #9
 
 ---
 
@@ -334,6 +334,27 @@ drills are in the Field Guide and in the Lab's Build path tab.
   names); `Connection: close` after 400, 408 and 413. Done when `/nope` gives
   404 with `www/errors/404.html`, `/errors/404.html` gives 404 (internal),
   and `curl -i -X DELETE localhost:8080/` gives 405 with `Allow: GET, HEAD`.
+  **Decided 2026-11-25** (Ravi approved Claude's recommendations): D1 the
+  page URI is matched to a location by a `static` longest-prefix helper of
+  B's own until Paola's shared one exists (the tests don't name it); D2
+  `internal` is B's, one check at the top of `buildResponse` before the
+  switch (`route.loc && route.loc->internalOnly` → 404), so it wins over C's
+  own error there, as in nginx; D3 the page's location is used for its root
+  only (its methods, `cgi` and `return` don't matter); D4 a 405 with no
+  location gets no `Allow`; D5 `Connection: close` on 400, 408 and 413
+  only. `Allow` lists the set in enum order (`GET, POST, HEAD, DELETE`)
+  with ", " between. The size limit applies to pages too; a page that
+  fails in any way gives `makeError(code)` with the code asked for.
+  **Tests:** section 7 `errors` (`make errors`), written by Claude on
+  2026-11-25: 43 tests, 24 failing against step 6 for the right reason (the
+  built-in page instead of the server's, 200 or 403 for `/errors/`, no
+  `Allow`, no `Connection`). The 19 that pass are guards: the nine fallbacks
+  (no `error_page`, no server, the page missing, a folder, a FIFO, mode
+  000, over the limit, a URI no location claims, 403 staying 403), "no
+  `Allow`" and "no `Connection`" on other codes, and four "no fd left
+  open". Decoys at `www/html/errors/404.html` and `www/files/404.html`
+  catch a lookup that uses `route.loc` or the first match. The 408 test
+  calls `buildErrorResponse` directly, as A would, outside the `try`.
 - [ ] **8. DELETE, then Upload.** DELETE: 204, 404, and 403 for folders,
   never recursive. Upload: the boundary from `Content-Type`, split the
   parts, keep only the last path part of the file name (refuse "", "." and
@@ -434,7 +455,11 @@ make facts FILE=conf/default.conf      # the location blocks and roots a scene c
 make test ARGS="-f t3 -x"              # ./tester options; ./tester --help lists them
 ```
 
-- **Sections so far:** 5 `directory` (27 tests, 2026-11-13: cards t5–t7,
+- **Sections so far:** 7 `errors` (43 tests, 2026-11-25: the server's page
+  and its code, the URI's own location, one hop to the built-in page,
+  `internal`, `Allow` on 405, `Connection: close` on 400, 408 and 413, HEAD,
+  no fd left open; 24 failing until step 7 is written). 6 `redirect` (13
+  tests, 2026-11-17). 5 `directory` (27 tests, 2026-11-13: cards t5–t7,
   the redirect, the index, the listing, 404 or 403, HEAD, no fd left
   open). 4 `tobytes` (28 tests, 2026-11-13: Date now and in
   GMT on every kind of response, once; Server: webserv, once; the new
@@ -518,9 +543,39 @@ make test ARGS="-f t3 -x"              # ./tester options; ./tester --help lists
   generated C++ main through the harness, the comparison), `walker.js`
   (appended to a copy of the page, run with
   `google-chrome --headless=new --dump-dom`).
-- **Not yet updated for steps 5 and 6** (2026-11-17). The page still shows
-  step 4: `handleDirectory` and `handleRedirect` are dashed blocks, and cards
-  t5–t8 still answer as the step 4 stubs do.
+- **Updated 2026-11-17 for steps 5 and 6** (version 4). Embedded: Ravi's
+  `ResponseBuilder.cpp` at step 6 (the other embedded files were unchanged).
+  The JS copy runs `handleDirectory`, `listDirectory`, `htmlEscape`,
+  `percentEncode` and `handleRedirect`; `STUBS` is down to Upload,
+  DeleteResource and CGI. The `fs` model grew folders: a folder exists if it
+  is a key or if any key lies inside it (as the Sandbox makes parents), a path
+  ending in "/" finds only folders, and readdir gives `.`, `..`, then the
+  names in the order the scenario lists them; `readable: false` on a folder is
+  mode 000. Cards t5–t7 have `fs` models and the suite's own test text; t8
+  stays the Lab's card (POST /old/form, `return 307 /new/form`). New group,
+  **Suite scenes** (`SCENES`, `scene: true`), ten tests of the step sections
+  for the paths no card takes: d1 the index (handleStaticFile on `asFile`),
+  d2 folders first in byte order, d3 hidden names, d4 a name with `" < >`,
+  d5 the folder is gone (404), d6 a folder it may not read (403), r1 `return
+  301 /`, r2 the query stays behind, r3 the route decides (StatusCode and
+  redirectLocation set by hand), r4 a bare LF in the target (500). A scene
+  may set route fields by hand: `route.set` plus `route.setSay`, which the
+  check script turns into assignments. Their test text is read from the
+  section files by the update script, never retyped. In the Pipeline view
+  `handleDirectory()` and `handleRedirect()` are real blocks: under the first,
+  `make()`, `setHeader()`, `handleStaticFile()` for the index (`dirIndex`;
+  its helpers light up the blocks under the StaticFile handler),
+  `listDirectory()` with `percentEncode()` and `htmlEscape()`, and a dashed
+  `buildErrorResponse()`; under the second, `reasonFor()`, `make()`,
+  `setHeader()`. Results: 39 of 39 scenarios identical in the C++ (built
+  with ASan and UBSan) and the JS copy (t18 page only), 258 anchors and 25
+  functions found, 24 phrases and 10 MIME types read from the source; 80
+  walks at 1400 px and 80 at 390 px (4,522 steps, 1,880 block clicks and 505
+  call-tree clicks each) without a JavaScript error, a warning, or the page
+  scrolling sideways. Headless Chrome won't open a window narrower than
+  500 px: the 390 px walk loads the page in a 390 px iframe
+  (`--allow-file-access-from-files`, the result copied out on the iframe's
+  load).
 - How it works: like the ConfigParser Pipeline page. It embeds the C++ files
   and runs a JavaScript copy of them that records every call. Line numbers
   come from snippets (`ANCHORS` in the trace engine), so code that only
@@ -538,22 +593,23 @@ make test ARGS="-f t3 -x"              # ./tester options; ./tester --help lists
   (23 cards, 7 bench) gave identical bytes, all 115 anchors were found, and
   60 walks (every step, both views) ran without a JavaScript error.
 
-## 10. Next up (2026-11-17)
+## 10. Next up (2026-11-25)
 
-Done: steps 1–6 pass (§6). Steps 1–5 are committed (`76efd01` is step 5).
+Done: steps 1–6 pass (§6) and are pushed (`a39745b` is step 6); the
+pipeline page shows step 6 (§9, version 4). Step 7's tests are written
+(section 7, 24 failing for the right reason).
 
-1. Commit step 6: `src/http/ResponseBuilder.cpp`,
-   `tests/ResponseBuilder/sections/06_redirect.hpp` and `main.cpp`; the
-   config side (`src/config/ConfigParser.cpp`,
-   `tests/ConfigParser/sections/07_locations.hpp`,
-   `conf/invalid/return_code_range.conf`,
-   `conf/invalid/return_not_a_redirect.conf`); this file and
-   `config-work-context.md`.
-2. Update the pipeline page for steps 5 and 6 (§9): Directory's and
-   Redirect's blocks, `listDirectory` and its helpers, cards t5–t8 with `fs`
-   models of their folders.
-3. Step 7, error pages: Claude writes the test section first.
-4. Step 0, still open: the "Needs agreement" list for Ivan and Paola. The
+1. Step 7, error pages: Ravi writes `buildErrorResponse`, the URI matcher,
+   the `internal` check and the two headers until `make errors` passes.
+   The rules are in the header comment of `sections/07_errors.hpp` and
+   D1–D5 in §6. The traps to watch: `route.loc` is not the page's
+   location; a page reader that reuses `handleStaticFile` loops forever;
+   `Allow` and `Connection` must be added on the fallback too, the
+   null-server return included.
+   Then commit, and the pipeline page (§9): `buildErrorResponse`'s three
+   dashed blocks become real, and cards t14–t17 and t20 get the custom
+   pages.
+2. Step 0, still open: the "Needs agreement" list for Ivan and Paola. The
    slash redirect (Paola) now touches steps 5 and 6: if the router sends it
    as a Redirect, `handleRedirect` already serves it (a test pins that), and
    `handleDirectory`'s own 301 becomes unreachable.
@@ -570,6 +626,7 @@ Later: a pipeline page for the whole server, following one request from
 Edit this list directly; it is the only copy. (Until 2026-11-17 it was meant
 to be pasted from the Lab's Decision log tab, which was never kept up.)
 
+- Error pages: the URI matched by B's own longest-prefix helper for now; the page's location used for its root only; any failure gives the built-in page with the same code; internal checked by B at the top of buildResponse (404, before C's own error); Allow on 405 from loc->allowedMethods in enum order, none without a location; Connection: close on 400, 408 and 413 (2026-11-25)
 - Redirect codes in return: 301, 302, 303, 307 and 308 only, the rest of 3xx refused at startup; the handler takes the code and the target from the route, and the target goes out as configured (2026-11-17)
 - Reason phrases to add: 303 See Other, 304 Not Modified, 307 Temporary Redirect, 308 Permanent Redirect; 413 becomes Content Too Large (2026-11-13)
 - Where Date and Server get added: in toBytes, the date formatted by a helper; Server: webserv; both replace one the response already has (2026-11-13)
@@ -581,7 +638,8 @@ to be pasted from the Lab's Decision log tab, which was never kept up.)
 
 ## Agreed with the team
 
-- [ ] Who calls toBytes, and who sets Connection: close (Ivan)
+- [ ] Who calls toBytes, and who sets Connection: close (Ivan). From step 7, B sets it on 400, 408 and 413; A has to read it and close the socket after sending, and A calls buildErrorResponse itself for a 408
+- [ ] internal locations: B answers 404 at the top of buildResponse; the router may check too, harmlessly (Paola)
 - [ ] How CGI output reaches you, for example buildCgiResponse(const CgiProcess &, const RouteResult &) (Ivan)
 - [ ] Who passes headRequest (request.method == "HEAD") (Ivan)
 - [ ] The port’s default server in the RouteResult for errors before routing, so custom pages work for 400, 413, 414, 431 and 505 (Ivan)
